@@ -1,0 +1,24 @@
+---
+Language:        Cpp
+BasedOnStyle:  Google
+
+AccessModifierOffset: -1
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+ColumnLimit:     80
+IndentWidth:     4
+UseTab:          Never
+TabWidth:        4
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Windows SDK and WDK headers are order sensitive: <ntddk.h> has to come
+# before the channel headers, and clang-format must never reorder includes
+# across the kernel/user boundary.
+SortIncludes: false

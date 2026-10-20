@@ -1,0 +1,13 @@
+/build/
+/.xmake/
+/.cache/
+/build-*/
+*.pdb
+*.ilk
+*.user
+*.log
+*.dmp
+*.minidump
+/tests/e2e/out/
+/tests/e2e/tmp/
+/docs/evidence/**/*.raw
