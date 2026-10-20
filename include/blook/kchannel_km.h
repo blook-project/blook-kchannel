@@ -47,16 +47,13 @@ typedef struct kc_kernel kc_kernel;
  *   - never touch user pointers; only the validated buffers are provided;
  *   - handler output is copied into the response ring by the worker.
  */
-typedef kc_status (*kc_handler_fn)(void* ctx, uint16_t op, const void* in,
-                                   uint32_t in_len, void* out,
-                                   uint32_t* out_cap, uint32_t* out_len);
 
 typedef struct kc_kernel_config {
-    uint32_t max_payload;    /* 0 => min(KC_MAX_PAYLOAD, ring limit) */
-    uint32_t poll_spin_us;   /* default 50: busy window per poll cycle */
-    uint32_t poll_idle_us;   /* default 1000: first KeDelayExecutionThread */
-    uint32_t watchdog_ms;    /* default 5000: user heartbeat timeout */
-    uint32_t flags;          /* KC_KFLAG_* */
+    uint32_t max_payload;  /* 0 => min(KC_MAX_PAYLOAD, ring limit) */
+    uint32_t poll_spin_us; /* default 50: busy window per poll cycle */
+    uint32_t poll_idle_us; /* default 1000: first KeDelayExecutionThread */
+    uint32_t watchdog_ms;  /* default 5000: user heartbeat timeout */
+    uint32_t flags;        /* KC_KFLAG_* */
     void (*on_peer_gone)(void* ctx); /* optional; from the worker thread */
     void* ctx;
     /* -- appended in ABI 1.0 (must stay zero/ignored by old callers) -- */

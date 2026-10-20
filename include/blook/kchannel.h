@@ -73,7 +73,8 @@ typedef signed __int64 int64_t;
 /* Contract v0 annotates kc_bootstrap as "0x80 bytes", but its own field list
  * sums to 0x90 (0x70 after salt + reserved[32]). All field offsets match the
  * contract; only that arithmetic annotation is wrong, so the header keeps the
- * contract fields and uses the real size. Reported to the Lead as an erratum. */
+ * contract fields and uses the real size. Reported to the Lead as an erratum.
+ */
 #define KC_BOOTSTRAP_SIZE 0x90u
 #define KC_RECORD_HEADER_SIZE 0x10u
 #define KC_MSG_HEADER_SIZE 0x40u
@@ -138,12 +139,12 @@ typedef struct kc_bootstrap {
     uint16_t abi_major; /* KC_ABI_MAJOR */
     uint16_t abi_minor; /* KC_ABI_MINOR */
     uint32_t struct_size;
-    uint32_t mode;          /* kc_mode */
-    uint32_t cipher;        /* kc_cipher */
-    uint32_t peer_pid;      /* expected client pid, 0 => current process */
-    uint64_t attach_id;     /* random 64 bit id, never 0 */
-    uint64_t shared_va;     /* client VA of the region, page aligned */
-    uint64_t shared_size;   /* page aligned, [0x4000, 0x100000] */
+    uint32_t mode;        /* kc_mode */
+    uint32_t cipher;      /* kc_cipher */
+    uint32_t peer_pid;    /* expected client pid, 0 => current process */
+    uint64_t attach_id;   /* random 64 bit id, never 0 */
+    uint64_t shared_va;   /* client VA of the region, page aligned */
+    uint64_t shared_size; /* page aligned, [0x4000, 0x100000] */
     uint8_t session_key[KC_KEY_SIZE]; /* never written to the region */
     uint8_t salt[KC_SALT_SIZE];       /* copied into ctrl.salt */
     uint8_t reserved[32];
@@ -159,16 +160,16 @@ typedef struct kc_record {
 
 /* Wire frame (contract section 5). AAD = bytes [0, KC_MSG_AAD_SIZE). */
 typedef struct kc_msg_header {
-    uint32_t magic;        /* KC_MSG_MAGIC */
-    uint16_t version;      /* KC_ABI_MAJOR */
-    uint16_t opcode;       /* kc_opcode */
-    uint32_t payload_len;  /* ciphertext length */
-    uint32_t status;       /* kc_status, meaningful for REPLY */
-    uint64_t seq;          /* equals the enclosing kc_record.seq */
-    uint64_t request_id;   /* CALL/REPLY pairing, echoed by the kernel */
-    uint64_t nonce_suffix; /* reserved for future nonce schemes; must be 0 */
-    uint32_t reserved0;    /* must be 0 */
-    uint32_t reserved1;    /* must be 0 */
+    uint32_t magic;           /* KC_MSG_MAGIC */
+    uint16_t version;         /* KC_ABI_MAJOR */
+    uint16_t opcode;          /* kc_opcode */
+    uint32_t payload_len;     /* ciphertext length */
+    uint32_t status;          /* kc_status, meaningful for REPLY */
+    uint64_t seq;             /* equals the enclosing kc_record.seq */
+    uint64_t request_id;      /* CALL/REPLY pairing, echoed by the kernel */
+    uint64_t nonce_suffix;    /* reserved for future nonce schemes; must be 0 */
+    uint32_t reserved0;       /* must be 0 */
+    uint32_t reserved1;       /* must be 0 */
     uint8_t tag[KC_TAG_SIZE]; /* HMAC-SHA256(session_key, AAD||ciphertext) */
 } kc_msg_header;
 
@@ -200,31 +201,31 @@ typedef struct kc_hello_ack_payload {
  * validated by both sides; neither side trusts the other's contents.
  */
 typedef struct kc_ctrl {
-    uint32_t magic;        /* 0x000 */
-    uint16_t abi_major;    /* 0x004 */
-    uint16_t abi_minor;    /* 0x006 */
-    uint32_t header_size;  /* 0x008, KC_CTRL_SIZE */
-    uint32_t state;        /* 0x00C, kc_state */
-    uint32_t flags;        /* 0x010, KC_CTRL_FLAG_* */
-    uint32_t error;        /* 0x014, kc_status when state == FAILED */
-    uint32_t peer_pid;     /* 0x018 */
-    uint32_t cipher;       /* 0x01C, kc_cipher */
-    uint64_t req_off;      /* 0x020 */
-    uint64_t req_size;     /* 0x028 */
-    uint64_t rsp_off;      /* 0x030 */
-    uint64_t rsp_size;     /* 0x038 */
-    uint64_t req_seq_next; /* 0x040 user writes */
-    uint64_t rsp_seq_next; /* 0x048 kernel writes */
-    uint64_t req_seq_acked;/* 0x050 kernel writes */
-    uint64_t rsp_seq_acked;/* 0x058 user writes */
-    uint64_t req_head;     /* 0x060 user writes */
-    uint64_t req_tail;     /* 0x068 kernel writes */
-    uint64_t rsp_head;     /* 0x070 kernel writes */
-    uint64_t rsp_tail;     /* 0x078 user writes */
+    uint32_t magic;               /* 0x000 */
+    uint16_t abi_major;           /* 0x004 */
+    uint16_t abi_minor;           /* 0x006 */
+    uint32_t header_size;         /* 0x008, KC_CTRL_SIZE */
+    uint32_t state;               /* 0x00C, kc_state */
+    uint32_t flags;               /* 0x010, KC_CTRL_FLAG_* */
+    uint32_t error;               /* 0x014, kc_status when state == FAILED */
+    uint32_t peer_pid;            /* 0x018 */
+    uint32_t cipher;              /* 0x01C, kc_cipher */
+    uint64_t req_off;             /* 0x020 */
+    uint64_t req_size;            /* 0x028 */
+    uint64_t rsp_off;             /* 0x030 */
+    uint64_t rsp_size;            /* 0x038 */
+    uint64_t req_seq_next;        /* 0x040 user writes */
+    uint64_t rsp_seq_next;        /* 0x048 kernel writes */
+    uint64_t req_seq_acked;       /* 0x050 kernel writes */
+    uint64_t rsp_seq_acked;       /* 0x058 user writes */
+    uint64_t req_head;            /* 0x060 user writes */
+    uint64_t req_tail;            /* 0x068 kernel writes */
+    uint64_t rsp_head;            /* 0x070 kernel writes */
+    uint64_t rsp_tail;            /* 0x078 user writes */
     uint64_t user_heartbeat_ns;   /* 0x080 */
     uint64_t kernel_heartbeat_ns; /* 0x088 */
-    uint64_t attach_id;    /* 0x090 */
-    uint64_t last_error_seq; /* 0x098 */
+    uint64_t attach_id;           /* 0x090 */
+    uint64_t last_error_seq;      /* 0x098 */
     uint8_t nonce_prefix_rq[KC_NONCE_PREFIX_SIZE]; /* 0x0A0 */
     uint8_t nonce_prefix_rs[KC_NONCE_PREFIX_SIZE]; /* 0x0A8 */
     uint8_t salt[KC_SALT_SIZE];                    /* 0x0B0 */
@@ -243,8 +244,7 @@ KC_STATIC_ASSERT(sizeof(kc_msg_header) == KC_MSG_HEADER_SIZE,
                  "kc_msg_header must stay 0x40 bytes");
 KC_STATIC_ASSERT(sizeof(kc_ctrl) == KC_CTRL_SIZE,
                  "kc_ctrl must fill exactly one page");
-KC_STATIC_ASSERT(offsetof(kc_bootstrap, mode) == 0x0C,
-                 "bootstrap.mode offset");
+KC_STATIC_ASSERT(offsetof(kc_bootstrap, mode) == 0x0C, "bootstrap.mode offset");
 KC_STATIC_ASSERT(offsetof(kc_bootstrap, cipher) == 0x10,
                  "bootstrap.cipher offset");
 KC_STATIC_ASSERT(offsetof(kc_bootstrap, peer_pid) == 0x14,
@@ -257,25 +257,55 @@ KC_STATIC_ASSERT(offsetof(kc_bootstrap, shared_size) == 0x28,
                  "bootstrap.shared_size offset");
 KC_STATIC_ASSERT(offsetof(kc_bootstrap, session_key) == 0x30,
                  "bootstrap.session_key offset");
-KC_STATIC_ASSERT(offsetof(kc_bootstrap, salt) == 0x50,
-                 "bootstrap.salt offset");
+KC_STATIC_ASSERT(offsetof(kc_bootstrap, salt) == 0x50, "bootstrap.salt offset");
 KC_STATIC_ASSERT(offsetof(kc_bootstrap, reserved) == 0x70,
                  "bootstrap.reserved offset");
 KC_STATIC_ASSERT(offsetof(kc_msg_header, tag) == KC_MSG_AAD_SIZE,
                  "msg tag offset defines the authenticated byte range");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, magic) == 0x000, "ctrl.magic offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, abi_major) == 0x004, "ctrl.abi_major");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, abi_minor) == 0x006, "ctrl.abi_minor");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, header_size) == 0x008, "ctrl.header_size");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, state) == 0x00C, "ctrl.state");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, flags) == 0x010, "ctrl.flags");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, error) == 0x014, "ctrl.error");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, peer_pid) == 0x018, "ctrl.peer_pid");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, cipher) == 0x01C, "ctrl.cipher");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, req_off) == 0x20, "ctrl.req_off offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, req_size) == 0x28, "ctrl.req_size offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_off) == 0x30, "ctrl.rsp_off offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_size) == 0x38, "ctrl.rsp_size offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, req_seq_next) == 0x40,
                  "ctrl.req_seq_next offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_seq_next) == 0x48,
+                 "ctrl.rsp_seq_next offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, req_seq_acked) == 0x50,
+                 "ctrl.req_seq_acked offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_seq_acked) == 0x58,
+                 "ctrl.rsp_seq_acked offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, req_head) == 0x60, "ctrl.req_head offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, req_tail) == 0x68, "ctrl.req_tail offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_head) == 0x70, "ctrl.rsp_head offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, rsp_tail) == 0x78, "ctrl.rsp_tail offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, user_heartbeat_ns) == 0x80,
                  "ctrl.user_heartbeat_ns offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, kernel_heartbeat_ns) == 0x88,
+                 "ctrl.kernel_heartbeat_ns offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, attach_id) == 0x90, "ctrl.attach_id");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, last_error_seq) == 0x98,
+                 "ctrl.last_error_seq");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, nonce_prefix_rq) == 0xA0,
                  "ctrl.nonce_prefix_rq offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, nonce_prefix_rs) == 0xA8,
+                 "ctrl.nonce_prefix_rs offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, salt) == 0xB0, "ctrl.salt offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, session_tag) == 0xD0,
                  "ctrl.session_tag offset");
 KC_STATIC_ASSERT(offsetof(kc_ctrl, peer_token) == 0xF0,
                  "ctrl.peer_token offset");
+KC_STATIC_ASSERT(offsetof(kc_ctrl, reserved) == 0x100, "ctrl.reserved offset");
+KC_STATIC_ASSERT(sizeof(((kc_ctrl*)0)->reserved) == KC_CTRL_SIZE - 0x100,
+                 "ctrl.reserved size");
 
 /* ------------------------------------------------------------------ */
 /* Enumerations and small helpers                                     */
@@ -323,6 +353,13 @@ typedef enum kc_status {
     KC_STATUS_COUNT = 17
 } kc_status;
 
+/*
+ * Kernel handler signature (kernel side only, declared here so the shared
+ * reactor code can be compiled for both sides).
+ */
+typedef kc_status (*kc_handler_fn)(void* ctx, uint16_t op, const void* in,
+                                   uint32_t in_len, void* out,
+                                   uint32_t* out_cap, uint32_t* out_len);
 /* Built-in opcodes. Application specific opcodes are >= 0x8000. */
 #define KC_OP_HELLO 0x0001u
 #define KC_OP_HELLO_ACK 0x0002u
@@ -334,6 +371,21 @@ typedef enum kc_status {
 #define KC_OP_PONG 0x0008u
 #define KC_OP_APP_MIN 0x8000u
 #define KC_OP_RESERVED_MAX 0x0008u
+
+/*
+ * Payload conventions (see docs/abi.md):
+ *   HELLO     : kc_hello_payload (plaintext, AEAD protected)
+ *   HELLO_ACK : kc_hello_ack_payload
+ *   CALL      : uint16 app_op || application request bytes
+ *   REPLY     : application reply bytes (header.status = handler status)
+ *   EVENT     : uint16 app_op || application event bytes
+ *   PING      : empty; answered with an empty REPLY
+ *   BYE       : empty; no reply
+ * The 2-byte application opcode prefix keeps kc_msg_header.opcode exactly as
+ * the contract defines it (1..8 transport, >= 0x8000 application).
+ */
+#define KC_CALL_PREFIX_SIZE 2u
+#define KC_EVENT_PREFIX_SIZE 2u
 
 /* ctrl.flags */
 #define KC_CTRL_FLAG_EVENTS_ENABLED 0x00000001u
@@ -368,11 +420,11 @@ typedef enum kc_status {
 typedef struct kc_client kc_client;
 
 typedef struct kc_attach_opts {
-    uint32_t region_size; /* 0 => KC_DEFAULT_REGION_SIZE */
-    uint32_t mode;        /* kc_mode, default KC_MODE_MAPPED */
-    uint32_t cipher;      /* kc_cipher, default KC_CIPHER_CHACHA20 */
-    uint32_t peer_pid;    /* 0 => current process */
-    uint32_t flags;       /* KC_ATTACH_FLAG_* */
+    uint32_t region_size;  /* 0 => KC_DEFAULT_REGION_SIZE */
+    uint32_t mode;         /* kc_mode, default KC_MODE_MAPPED */
+    uint32_t cipher;       /* kc_cipher, default KC_CIPHER_CHACHA20 */
+    uint32_t peer_pid;     /* 0 => current process */
+    uint32_t flags;        /* KC_ATTACH_FLAG_* */
     const char* debug_tag; /* logging only, may be NULL */
 } kc_attach_opts;
 
@@ -459,4 +511,3 @@ void kc_get_stats(kc_client* client, kc_client_stats* out);
 #endif
 
 #endif /* BLOOK_KCHANNEL_H */
-
