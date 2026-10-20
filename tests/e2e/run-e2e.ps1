@@ -96,7 +96,7 @@ if (-not $SkipBuild) {
         if ($LASTEXITCODE -ne 0) { throw 'xmake configure failed' }
         & xmake -y
         if ($LASTEXITCODE -ne 0) { throw 'xmake build failed' }
-        & xmake run kchannel-unit-tests
+        & xmake run kchannel-unit-tests 2>&1 | Tee-Object -FilePath (Join-Path $Out 'host-unit.txt')
         if ($LASTEXITCODE -ne 0) { throw 'host unit tests failed' }
     }
     finally { Pop-Location }

@@ -141,6 +141,9 @@ Record 'mapped_loader_kill' ($mappedKill.ExitCode -eq 0) $mappedKill.Output
 if (Test-Path 'C:\blook-kchannel-e2e.log') {
     Copy-Item 'C:\blook-kchannel-e2e.log' (Join-Path $bundle 'driver-log.txt') -Force
     $log = Get-Content 'C:\blook-kchannel-e2e.log' -Raw
+    Write-Host 'DRIVER-LOG-BEGIN'
+    Write-Host $log
+    Write-Host 'DRIVER-LOG-END'
     $peerGone = $log -match 'peer_gone'
     $destroyed = $log -match 'kc_kernel_destroy'
     Record 'mapped_peer_gone_cleanup' ($peerGone -and $destroyed) 'driver-log.txt'

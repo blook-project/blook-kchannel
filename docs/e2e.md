@@ -92,8 +92,10 @@ docs/evidence/<YYYYMMDD>-vm-e2e/
   blook-kchannel-test.cer     # public test certificate
 ```
 
-`bvmenv e2e` copies the whole bundle back into the host artifact directory, so
-`results.jsonl` and the driver log are available even when the guest dies.
+`bvmenv e2e` pulls the guest stdout/stderr/state/screenshot, not the bundle
+directory, so `guest-run.ps1` prints every check plus the driver log to stdout
+(`stdout.txt`). The JSON files listed above are the same content in bundle form
+and only exist when the run script managed to write them.
 
 ## 5. Cleanup
 
