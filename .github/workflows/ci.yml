@@ -41,7 +41,7 @@ jobs:
         shell: pwsh
         run: |
           xmake f -y -m release --wdk="$env:WDK_DIR"
-          xmake show | Select-Object -First 20
+          xmake show -l targets
 
       - name: Build (user lib, kernel lib, unit tests, guest tools)
         shell: pwsh
