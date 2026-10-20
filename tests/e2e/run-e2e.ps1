@@ -1,0 +1,214 @@
+<#
+.SYNOPSIS
+    Full blook-kchannel VM e2e: build, sign test drivers, run the guest matrix
+    through bvmenv, run the deliberate-BSOD harness, and collect evidence.
+
+.DESCRIPTION
+    Requires:
+      * xmake + WDK on the host (for the .sys build and signtool),
+      * bvmenv.exe (blook-vmware-environment) with a base VM that already has
+        test signing enabled,
+      * a "vm-kchannel" (or -Vm) fork of that base image.
+
+    A self-signed code-signing certificate named CN=blook-kchannel-test is
+    created in the *current user* certificate store on first use (no private
+    key is committed to the repo) and its .cer is pushed into the guest for
+    the trusted root/publisher stores.
+
+.EXAMPLE
+    pwsh tests/e2e/run-e2e.ps1
+    pwsh tests/e2e/run-e2e.ps1 -Vm vm-kchannel -Out docs/evidence/20261021-vm-e2e
+#>
+[CmdletBinding()]
+param(
+    [string]$Vm = 'vm-kchannel',
+    [string]$Out,
+    [string]$Bvmenv,
+    [string]$SignTool,
+    [switch]$SkipBuild,
+    [switch]$SkipCrashRun
+)
+
+$ErrorActionPreference = 'Stop'
+$repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$version = (Get-Content (Join-Path $repo 'version.txt') -Raw).Trim()
+if (-not $Out) {
+    $Out = Join-Path $repo ("docs/evidence/" + (Get-Date -Format 'yyyyMMdd') + '-vm-e2e')
+}
+New-Item -ItemType Directory -Force -Path $Out | Out-Null
+
+function Find-Bvmenv {
+    if ($Bvmenv) { return (Resolve-Path $Bvmenv).Path }
+    $fromPath = Get-Command bvmenv.exe -ErrorAction SilentlyContinue
+    if ($fromPath) { return $fromPath.Source }
+    $candidate = 'D:\blook-kernel-project\blook-vmware-environment\build\windows\x64\releasedbg\bvmenv.exe'
+    if (Test-Path $candidate) { return $candidate }
+    throw 'bvmenv.exe not found: pass -Bvmenv or put it on PATH'
+}
+
+function Find-SignTool {
+    if ($SignTool) { return (Resolve-Path $SignTool).Path }
+    $kits = 'C:\Program Files (x86)\Windows Kits\10\bin'
+    if (-not (Test-Path $kits)) { $kits = 'Y:\Program Files (x86)\Windows Kits\10\bin' }
+    $candidate = Get-ChildItem $kits -Directory |
+        Sort-Object Name -Descending |
+        ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+        Where-Object { Test-Path $_ } |
+        Select-Object -First 1
+    if (-not $candidate) { throw 'signtool.exe not found: pass -SignTool' }
+    return $candidate
+}
+
+function Get-TestCertificate {
+    $existing = Get-ChildItem Cert:\CurrentUser\My |
+        Where-Object { $_.Subject -eq 'CN=blook-kchannel-test' } |
+        Select-Object -First 1
+    if ($existing) { return $existing }
+    Write-Host 'creating test code-signing certificate CN=blook-kchannel-test (CurrentUser\My)'
+    return New-SelfSignedCertificate -Type CodeSigningCert `
+        -Subject 'CN=blook-kchannel-test' `
+        -CertStoreLocation Cert:\CurrentUser\My `
+        -KeyUsage DigitalSignature `
+        -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+}
+
+function Invoke-Bvmenv {
+    param([string[]]$Arguments)
+    $output = & $bv @Arguments 2>&1
+    $exit = $LASTEXITCODE
+    return [pscustomobject]@{ ExitCode = $exit; Output = ($output -join "`n") }
+}
+
+$bv = Find-Bvmenv
+$signtool = Find-SignTool
+$certificate = Get-TestCertificate
+$thumbprint = $certificate.Thumbprint
+Write-Host "bvmenv:  $bv"
+Write-Host "signtool: $signtool"
+Write-Host "cert:     $thumbprint"
+
+# ------------------------------- build -------------------------------
+$release = Join-Path $repo 'build/windows/x64/release'
+if (-not $SkipBuild) {
+    Push-Location $repo
+    try {
+        & xmake f -y -m release | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'xmake configure failed' }
+        & xmake -y
+        if ($LASTEXITCODE -ne 0) { throw 'xmake build failed' }
+        & xmake run kchannel-unit-tests
+        if ($LASTEXITCODE -ne 0) { throw 'host unit tests failed' }
+    }
+    finally { Pop-Location }
+}
+
+$driver = Join-Path $release 'kchannel_test.sys'
+$mapper = Join-Path $release 'kcmapload.sys'
+$ctl = Join-Path $release 'kchannel-ctl.exe'
+foreach ($artifact in @($driver, $mapper, $ctl)) {
+    if (-not (Test-Path $artifact)) { throw "missing build artifact: $artifact" }
+}
+
+# ------------------------------- sign --------------------------------
+$signed = Join-Path $Out 'signed'
+New-Item -ItemType Directory -Force -Path $signed | Out-Null
+foreach ($file in @($driver, $mapper)) {
+    $target = Join-Path $signed (Split-Path $file -Leaf)
+    Copy-Item $file $target -Force
+    & $signtool sign /fd sha256 /s My /sha1 $thumbprint $target | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "signtool failed for $target" }
+    $verify = & $signtool verify /pa /v $target 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "signature verification failed: $($verify -join '; ')" }
+    Write-Host "signed $target"
+}
+$cerPath = Join-Path $Out 'blook-kchannel-test.cer'
+Export-Certificate -Cert $certificate -FilePath $cerPath -Type CERT | Out-Null
+
+# ------------------------- VM availability ---------------------------
+$list = Invoke-Bvmenv @('list', '--json')
+if ($list.ExitCode -ne 0) { throw "bvmenv list failed: $($list.Output)" }
+$listJson = $list.Output | ConvertFrom-Json
+if (-not ($listJson.vms | Where-Object { $_.name -eq $Vm })) {
+    Write-Host "creating VM $Vm from base"
+    $created = Invoke-Bvmenv @('create', $Vm)
+    if ($created.ExitCode -ne 0) { throw "bvmenv create failed: $($created.Output)" }
+} else {
+    Write-Host "VM $Vm exists; resetting to base"
+    $reset = Invoke-Bvmenv @('reset', $Vm)
+    if ($reset.ExitCode -ne 0) { Write-Host "warning: reset failed: $($reset.Output)" }
+}
+
+# --------------------------- main bundle -----------------------------
+$bundle = Join-Path $Out 'bundle'
+if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $bundle | Out-Null
+Copy-Item (Join-Path $signed 'kchannel_test.sys') $bundle -Force
+Copy-Item (Join-Path $signed 'kcmapload.sys') $bundle -Force
+Copy-Item $ctl $bundle -Force
+Copy-Item $cerPath $bundle -Force
+Copy-Item (Join-Path $PSScriptRoot 'guest-run.ps1') $bundle -Force
+@"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0guest-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $bundle 'run-e2e.cmd')
+
+Write-Host '--- running main e2e matrix ---'
+$mainOut = Join-Path $Out 'main'
+$mainRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $bundle, '--entry', 'run-e2e.cmd',
+    '--timeout', '1200', '--out', $mainOut, '--reset-on', 'never')
+Write-Host $mainRun.Output
+$mainResult = Get-ChildItem $mainOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($mainResult) {
+    $mainJson = Get-Content $mainResult.FullName -Raw | ConvertFrom-Json
+    Write-Host "main outcome: $($mainJson.outcome)"
+} else {
+    Write-Host 'warning: main result.json not found'
+}
+
+# --------------------------- crash bundle ----------------------------
+if (-not $SkipCrashRun) {
+    $crashBundle = Join-Path $Out 'crash-bundle'
+    if (Test-Path $crashBundle) { Remove-Item $crashBundle -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $crashBundle | Out-Null
+    Copy-Item (Join-Path $signed 'kchannel_test.sys') $crashBundle -Force
+    Copy-Item $ctl $crashBundle -Force
+    Copy-Item $cerPath $crashBundle -Force
+    Copy-Item (Join-Path $PSScriptRoot 'crash-run.ps1') $crashBundle -Force
+    @"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0crash-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $crashBundle 'crash-run.cmd')
+
+    Write-Host '--- running deliberate-BSOD harness ---'
+    $crashOut = Join-Path $Out 'crash'
+    $crashRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $crashBundle, '--entry', 'crash-run.cmd',
+        '--timeout', '600', '--out', $crashOut, '--reset-on', 'always')
+    Write-Host $crashRun.Output
+    $crashResultFile = Get-ChildItem $crashOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($crashResultFile) {
+        $crashJson = Get-Content $crashResultFile.FullName -Raw | ConvertFrom-Json
+        Write-Host "crash outcome: $($crashJson.outcome)"
+    }
+}
+
+# ---------------------------- summary --------------------------------
+$summary = [ordered]@{
+    schema       = 'blook-kchannel.e2e.v1'
+    vm           = $Vm
+    repo_commit  = (& git -C $repo rev-parse HEAD 2>$null)
+    timestamp    = (Get-Date -Format o)
+    version      = $version
+    main_outcome = $(if ($mainJson) { $mainJson.outcome } else { 'missing' })
+    crash_outcome = $(if ($crashJson) { $crashJson.outcome } else { 'missing' })
+    evidence_dir = $Out
+}
+$summary | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $Out 'result.json')
+Write-Host ($summary | ConvertTo-Json -Depth 4)
+
+if ($mainJson -and $mainJson.outcome -ne 'pass') {
+    Write-Host 'main e2e matrix FAILED'
+    exit 1
+}
+exit 0
