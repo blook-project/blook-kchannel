@@ -83,6 +83,14 @@ $idle = Invoke-Ctl @('idle-cpu', '--device', '\\.\kchannel_test', '--region', $R
 Record 'scm_idle_cpu' ($idle.ExitCode -eq 0) $idle.Output
 if ($idle.Output -match '"ok":true') { $idle.Output | Add-Content (Join-Path $bundle 'idle-scm.json') }
 
+$copyLatency = Invoke-Ctl @('latency', '--device', '\\.\kchannel_test', '--region', $Region, '--count', "$LatencyCalls", '--mode', 'copy')
+Record 'scm_copy_latency' ($copyLatency.ExitCode -eq 0) $copyLatency.Output
+if ($copyLatency.Output -match '"ok":true') { $copyLatency.Output | Add-Content (Join-Path $bundle 'latency-copy.json') }
+
+$copyIdle = Invoke-Ctl @('idle-cpu', '--device', '\\.\kchannel_test', '--region', $Region, '--seconds', '10', '--mode', 'copy')
+Record 'scm_copy_idle_cpu' ($copyIdle.ExitCode -eq 0) $copyIdle.Output
+if ($copyIdle.Output -match '"ok":true') { $copyIdle.Output | Add-Content (Join-Path $bundle 'idle-copy.json') }
+
 $kill = Invoke-Ctl @('loader-kill', '--device', '\\.\kchannel_test', '--region', $Region)
 Record 'scm_loader_kill_recovery' ($kill.ExitCode -eq 0) $kill.Output
 
@@ -152,6 +160,8 @@ $summary = [ordered]@{
     latency_mapped = (Get-Content (Join-Path $bundle 'latency-mapped.json') -Raw -ErrorAction SilentlyContinue)
     idle_scm       = (Get-Content (Join-Path $bundle 'idle-scm.json') -Raw -ErrorAction SilentlyContinue)
     idle_mapped    = (Get-Content (Join-Path $bundle 'idle-mapped.json') -Raw -ErrorAction SilentlyContinue)
+    latency_copy   = (Get-Content (Join-Path $bundle 'latency-copy.json') -Raw -ErrorAction SilentlyContinue)
+    idle_copy      = (Get-Content (Join-Path $bundle 'idle-copy.json') -Raw -ErrorAction SilentlyContinue)
     trace_mapped   = (Get-Content (Join-Path $bundle 'trace-mapped.json') -Raw -ErrorAction SilentlyContinue)
 }
 ($summary | ConvertTo-Json -Depth 4) | Set-Content (Join-Path $bundle 'summary.json')

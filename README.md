@@ -6,10 +6,31 @@ registry, no named object, no notify routine.
 
 `blook-kchannel` is the single IPC transport used by `blook-kdu`,
 `blook-drv` and `blook-drv-lite`. The binding contract is
-[`../docs/contracts/kchannel-abi-v0.md`](../docs/contracts/kchannel-abi-v0.md).
+[`../docs/contracts/kchannel-abi-v0.md`](../docs/contracts/kchannel-abi-v0.md);
+the authoritative declarations are
+[`include/blook/kchannel.h`](include/blook/kchannel.h) (user) and
+[`include/blook/kchannel_km.h`](include/blook/kchannel_km.h) (kernel).
 
 > Authorized security research and testing only. This software is not
 > intended for production or malicious use.
+
+## Status
+
+- **ABI 1.0** - headers are frozen; breaking changes bump `KC_ABI_MINOR` and
+  are announced to every consumer.
+- **Host unit suite: 41 tests green** (no VM, no driver): crypto RFC vectors,
+  ABI layout, ring/framing corruption and tamper, replay, fuzz, timeout, and an
+  in-process mock kernel that drives the same protocol code as the driver.
+- **VM e2e**: test-signed `sc` load and manual map by `kcmapload.sys`, trace
+  scan (no device/registry/named-object/module traces for the mapped driver),
+  loader-kill cleanup, unload residue, wrong key, duplicate attach, latency and
+  idle CPU, plus a deliberate-BSOD harness validation. Evidence under
+  [`docs/evidence`](docs/evidence/).
+- **CI**: `.github/workflows/ci.yml` builds user + kernel targets and the guest
+  tools on `windows-latest` (WDK installed from the NuGet package), runs the
+  unit suite, gates clang-format and packages a source drop.
+  `.github/workflows/release.yml` publishes the Windows and source zips with
+  sha256 on every `v*` tag.
 
 ## Architecture
 
@@ -42,14 +63,13 @@ registry, no named object, no notify routine.
   prove the kernel holds the same key, then `HELLO`/`HELLO_ACK` flips the
   session to ACTIVE. Nothing but the handshake is processed before that.
 - **Crypto**: self-contained SHA-256, HMAC-SHA256, ChaCha20 (RFC 8439,
-  default) and AES-128-CTR (optional). No CNG/BCrypt in kernel mode, so
-  it works inside a manually mapped image. Every header field is
-  authenticated as AAD; payloads are encrypted; each direction has its
-  own nonce prefix and sequence space; replay is rejected by strict
-  sequence monotonicity.
+  default) and AES-128-CTR (optional). No CNG/BCrypt in kernel mode, so it
+  works inside a manually mapped image. Every header field is authenticated as
+  AAD; payloads are encrypted; each direction has its own nonce prefix and
+  sequence space; replay is rejected by strict sequence monotonicity.
 - **Modes**: `KC_MODE_MAPPED` (default, MDL locked user pages mapped to a
-  system VA) and `KC_MODE_COPY` (no resident mapping; every touch goes
-  through a crash-safe kernel copy primitive).
+  system VA) and `KC_MODE_COPY` (no resident mapping; every access goes
+  through `MmCopyVirtualMemory`, crash-safe even if the loader is dying).
 - **Stealth**: no `IoCreateDevice`, no symbolic link, no registry, no
   named object, no `Ps*Notify`, no SSDT hook, no image-load notify, no
   exported symbol. The only production bootstrap channel is the
@@ -67,35 +87,38 @@ registry, no named object, no notify routine.
 include/blook/kchannel.h       authoritative user-side ABI + API
 include/blook/kchannel_km.h    authoritative kernel-side API
 src/common/                    crypto, ring, framing, reactor (shared, CRT-free)
-src/user/                      user library (kc_attach/kc_call/...)
+src/user/                      user library (kc_attach / kc_call / ...)
 src/kernel/                    kernel library (kc_kernel_*)
-tests/unit/                    host tests (no VM): vectors, rings, fuzz, mock e2e
-tests/guest/kchannel_test/     test driver (echo/64KiB/delay/error/crash handlers)
+tests/unit/                    host tests (41): vectors, rings, fuzz, mock e2e
+tests/guest/kchannel_test/     test driver (echo/delay/error/crash/emit handlers)
 tests/guest/kcmapload/         minimal manual-map loader driver
-tests/guest/ctl/               host-side e2e control tool
-tests/e2e/                     bvmenv-driven VM e2e
+tests/guest/ctl/               kchannel-ctl e2e control tool
+tests/e2e/                     bvmenv-driven VM e2e (host + guest scripts)
 docs/                          integration, abi, e2e, performance, threat model
 ```
 
-## Build
+## Build and test
 
 ```powershell
 xmake f -y -m release
-xmake -y                 # user lib + kernel lib + host unit tests
-xmake run kchannel-unit-tests
+xmake -y                         # user lib + kernel lib + host tests + guest tools
+xmake run kchannel-unit-tests    # 41 host tests, no VM, no driver
+pwsh scripts/check-format.ps1    # clang-format 20.1.0 gate
 ```
 
-Kernel targets need WDK 10.0.26100.0; override with
-`xmake f --wdk_dir="D:\..."` when it is not in the default location.
+Kernel targets need WDK 10.0.26100.0; point xmake at it with
+`xmake f --wdk="<Windows Kits 10 root>"` when it is not in the default
+location (CI installs it from the `Microsoft.Windows.WDK.x64` NuGet package).
 Host unit tests never load a driver and do not need a VM.
 
 ## Use it
 
 - Consumers: see [docs/integration.md](docs/integration.md) for the exact
-  xmake snippets, the manual-map bootstrap and handler registration code.
-- ABI summary: [docs/abi.md](docs/abi.md).
-- VM end-to-end evidence: [docs/e2e.md](docs/e2e.md).
-- Measured latency and methodology: [docs/performance.md](docs/performance.md).
+  xmake snippets, the manual-map bootstrap, handler registration and the
+  CI pinning rules.
+- ABI summary and wire layout: [docs/abi.md](docs/abi.md).
+- VM end-to-end suite: [docs/e2e.md](docs/e2e.md).
+- Measured latency, idle CPU and methodology: [docs/performance.md](docs/performance.md).
 - Threat model: [docs/threat-model.md](docs/threat-model.md).
 
 Minimal user-side flow:
@@ -127,8 +150,8 @@ kc_detach(cli);
 - The library is deliberately paranoid about user memory: the kernel never
   dereferences user pointers directly and never trusts control-page
   contents owned by the user.
-- Test signing / `KCHANNEL_TESTING` builds are documented in
-  [docs/e2e.md](docs/e2e.md) and are not part of the shipped ABI.
+- See [docs/threat-model.md](docs/threat-model.md) for the full model and
+  residual risks.
 
 ## License
 
