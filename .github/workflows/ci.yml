@@ -30,7 +30,7 @@ jobs:
           tar.exe -xf $nupkg -C $root
           # The package contains one directory with Include/ and Lib/.
           $candidate = Get-ChildItem -Path $root -Directory -Recurse |
-            Where-Object { Test-Path (Join-Path $_.FullName 'Include') -and (Test-Path (Join-Path $_.FullName 'Lib')) } |
+            Where-Object { (Test-Path (Join-Path $_.FullName 'Include')) -and (Test-Path (Join-Path $_.FullName 'Lib')) } |
             Select-Object -First 1
           if ($null -eq $candidate) { throw 'WDK layout not found in NuGet package' }
           "WDK_DIR=$($candidate.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
