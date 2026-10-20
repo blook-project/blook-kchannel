@@ -60,8 +60,8 @@ sc.exe create kchannel_test type= kernel `
     binPath= (Join-Path $driverDir 'kchannel_test.sys') start= demand | Out-Null
 $startOutput = sc.exe start kchannel_test 2>&1
 Start-Sleep -Milliseconds 800
-$stateOutput = sc.exe query kchannel_test 2>&1
-Record 'scm_load' ($stateOutput -match 'RUNNING') ($stateOutput -join '; ')
+$service = Get-Service -Name kchannel_test -ErrorAction SilentlyContinue
+Record 'scm_load' ($service -and $service.Status -eq 'Running') (($startOutput -join '; ') + " status=$($service.Status)")
 
 $wrongKey = Invoke-Ctl @('wrong-key', '--device', '\\.\kchannel_test')
 Record 'wrong_key_rejected' ($wrongKey.ExitCode -eq 0) $wrongKey.Output
@@ -111,9 +111,9 @@ Record 'unload_no_device_or_service' ($noDevice -and $noServiceKey) $traceAfterU
 sc.exe create kcmapload type= kernel `
     binPath= (Join-Path $driverDir 'kcmapload.sys') start= demand | Out-Null
 sc.exe start kcmapload | Out-Null
-Start-Sleep -Milliseconds 800
 $mapperState = sc.exe query kcmapload 2>&1
-Record 'mapper_load' ($mapperState -match 'RUNNING') ($mapperState -join '; ')
+$mapperService = Get-Service -Name kcmapload -ErrorAction SilentlyContinue
+Record 'mapper_load' ($mapperService -and $mapperService.Status -eq 'Running') (($mapperState -join '; ') + " status=$($mapperService.Status)")
 
 $mapped = Invoke-Ctl @('map-test', '--mapper', '\\.\kcmapload', '--image', (Join-Path $bundle 'kchannel_test.sys'), '--region', $Region)
 Record 'mapped_functional_matrix' ($mapped.ExitCode -eq 0) $mapped.Output
