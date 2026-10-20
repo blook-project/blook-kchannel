@@ -108,7 +108,7 @@ if has_config("kchannel_tests") and has_guest_tools then
         set_languages("cxx17")
         set_exceptions("no-cxx")
         add_files("tests/guest/kcmapload/*.cpp")
-        add_includedirs("include", "src")
+        add_includedirs("include", "src", "tests")
         add_defines("NOMINMAX", "POOL_NX_OPTIN=1", "KCHANNEL_TESTING")
         add_cxxflags("/kernel", "/GR-", "/Zc:threadSafeInit-",
                      "/GS-", "/utf-8", {force = true})
@@ -124,6 +124,6 @@ if has_config("kchannel_tests") and has_guest_tools then
         add_includedirs("include", "src", "tests")
         add_defines("NOMINMAX", "UNICODE", "_UNICODE", "KCHANNEL_TESTING")
         add_cxxflags("/utf-8", "/W4", "/permissive-", {tools = "cl"})
-        add_syslinks("advapi32", "bcrypt")
+        add_syslinks("advapi32", "bcrypt", "ntdll")
         set_encodings("utf-8")
 end

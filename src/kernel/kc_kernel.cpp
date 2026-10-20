@@ -657,17 +657,17 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
     }
     reactor_config.ops = ops;
     reactor_config.ops_ctx = ops_ctx;
-    reactor_config.region_size = boot->shared_size;
-    reactor_config.session_key = boot->session_key;
-    reactor_config.salt = boot->salt;
+    reactor_config.region_size = kernel->boot.shared_size;
+    reactor_config.session_key = kernel->boot.session_key;
+    reactor_config.salt = kernel->boot.salt;
     reactor_config.nonce_tx = nonce_tx;
     /* The user publishes nonce_prefix_rq in the control page before HELLO;
      * the reactor refreshes it at handshake time. Start with a placeholder. */
     static const uint8_t kZeroPrefix[KC_NONCE_PREFIX_SIZE] = {0};
     reactor_config.nonce_rx = kZeroPrefix;
-    reactor_config.cipher = boot->cipher;
+    reactor_config.cipher = kernel->boot.cipher;
     reactor_config.peer_pid = peer_pid;
-    reactor_config.attach_id = boot->attach_id;
+    reactor_config.attach_id = kernel->boot.attach_id;
     reactor_config.max_payload = kernel->max_payload;
     reactor_config.watchdog_ms = (config != nullptr && config->watchdog_ms != 0)
                                      ? config->watchdog_ms

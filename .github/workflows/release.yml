@@ -1,0 +1,100 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build, test and publish release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: 3.0.8
+
+      - name: Install WDK via NuGet
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nupkg = Join-Path $env:RUNNER_TEMP 'wdk.nupkg'
+          Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.Windows.WDK.x64/10.0.26100.6584' -OutFile $nupkg
+          $root = Join-Path $env:RUNNER_TEMP 'wdk'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          tar.exe -xf $nupkg -C $root
+          $candidate = Get-ChildItem -Path $root -Directory -Recurse |
+            Where-Object { Test-Path (Join-Path $_.FullName 'Include') -and (Test-Path (Join-Path $_.FullName 'Lib')) } |
+            Select-Object -First 1
+          if ($null -eq $candidate) { throw 'WDK layout not found in NuGet package' }
+          "WDK_DIR=$($candidate.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build
+        shell: pwsh
+        run: |
+          xmake f -y -m release --wdk="$env:WDK_DIR"
+          xmake -y
+
+      - name: Host unit tests
+        shell: pwsh
+        run: |
+          xmake run kchannel-unit-tests
+          if ($LASTEXITCODE -ne 0) { throw "unit tests failed: $LASTEXITCODE" }
+
+      - name: Package release zips
+        shell: pwsh
+        run: |
+          $version = (Get-Content version.txt -Raw).Trim()
+          if ("v$version" -ne "${{ github.ref_name }}" -and "${{ github.ref_name }}" -ne '') {
+            Write-Host "warning: tag ${{ github.ref_name }} != version.txt v$version"
+          }
+          $binary = Join-Path $env:RUNNER_TEMP 'binary'
+          $source = Join-Path $env:RUNNER_TEMP 'source'
+          New-Item -ItemType Directory -Force -Path $binary,"$binary/include","$binary/lib/x64","$binary/bin/x64" | Out-Null
+          Copy-Item include/blook -Destination "$binary/include/blook" -Recurse
+          Copy-Item docs/integration.md,README.md,LICENSE,CHANGELOG.md,version.txt -Destination $binary
+          $release = 'build/windows/x64/release'
+          Copy-Item "$release/kchannel.lib","$release/kchannel_km.lib" -Destination "$binary/lib/x64"
+          Copy-Item "$release/kchannel-ctl.exe","$release/kchannel_test.sys","$release/kcmapload.sys" -Destination "$binary/bin/x64"
+          Compress-Archive -Path "$binary/*" -DestinationPath "blook-kchannel-$version-windows-x64.zip" -Force
+
+          New-Item -ItemType Directory -Force -Path $source | Out-Null
+          Copy-Item include,src -Destination $source -Recurse
+          Copy-Item docs/integration.md,version.txt,LICENSE,README.md -Destination $source
+          New-Item -ItemType Directory -Force -Path "$source/xmake-package" | Out-Null
+          Copy-Item xmake-package/xmake.lua -Destination "$source/xmake-package"
+          Compress-Archive -Path "$source/*" -DestinationPath "blook-kchannel-$version-src.zip" -Force
+
+          foreach ($zip in Get-ChildItem *.zip) {
+            $hash = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($zip.Name)" | Out-File -Encoding ascii "$($zip.Name).sha256"
+          }
+          Get-ChildItem *.zip,*.sha256 | Select-Object Name,Length
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            blook-kchannel-*-windows-x64.zip
+            blook-kchannel-*-windows-x64.zip.sha256
+            blook-kchannel-*-src.zip
+            blook-kchannel-*-src.zip.sha256
+          generate_release_notes: true
+          body: |
+            blook-kchannel release. ABI 1.0 (frozen).
+
+            - `*-windows-x64.zip`: headers (`include/blook`), prebuilt libs
+              (`lib/x64/kchannel.lib`, `lib/x64/kchannel_km.lib`) and test
+              tools (`bin/x64`).
+            - `*-src.zip`: authoritative source drop (`include/`, `src/common`,
+              `src/kernel`, `src/user`) for consumers that compile the library
+              into their own targets via `--kchannel_dir=`.
+            - Every artifact has a `.sha256` sidecar.
+
+            Consumers: pin the tag/commit, see `docs/integration.md`.

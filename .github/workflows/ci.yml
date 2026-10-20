@@ -1,0 +1,121 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build + unit tests (windows x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: 3.0.8
+          actions-cache-folder: .xmake-cache
+
+      - name: Install WDK via NuGet
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nupkg = Join-Path $env:RUNNER_TEMP 'wdk.nupkg'
+          Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.Windows.WDK.x64/10.0.26100.6584' -OutFile $nupkg
+          $root = Join-Path $env:RUNNER_TEMP 'wdk'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          tar.exe -xf $nupkg -C $root
+          # The package contains one directory with Include/ and Lib/.
+          $candidate = Get-ChildItem -Path $root -Directory -Recurse |
+            Where-Object { Test-Path (Join-Path $_.FullName 'Include') -and (Test-Path (Join-Path $_.FullName 'Lib')) } |
+            Select-Object -First 1
+          if ($null -eq $candidate) { throw 'WDK layout not found in NuGet package' }
+          "WDK_DIR=$($candidate.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "WDK_DIR=$($candidate.FullName)"
+          Get-ChildItem (Join-Path $candidate.FullName 'Include') | Select-Object -First 5 Name
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          xmake f -y -m release --wdk="$env:WDK_DIR"
+          xmake show -l options
+
+      - name: Build (user lib, kernel lib, unit tests, guest tools)
+        shell: pwsh
+        run: xmake -y -v
+
+      - name: Host unit tests
+        shell: pwsh
+        run: |
+          xmake run kchannel-unit-tests
+          if ($LASTEXITCODE -ne 0) { throw "unit tests failed: $LASTEXITCODE" }
+
+      - name: Collect build outputs
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'kchannel-out'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $release = 'build/windows/x64/release'
+          Get-ChildItem $release -Include *.lib,*.exp -File | Copy-Item -Destination $out
+          Get-ChildItem $release -Include *.sys,*.exe -File | Copy-Item -Destination $out
+          Get-ChildItem $out | Select-Object Name,Length
+          "OUT_DIR=$out" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kchannel-windows-x64
+          path: |
+            build/windows/x64/release/*.lib
+            build/windows/x64/release/*.sys
+            build/windows/x64/release/kchannel-unit-tests.exe
+            build/windows/x64/release/kchannel-ctl.exe
+          if-no-files-found: error
+
+  format:
+    name: clang-format check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned clang-format
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check 'clang-format==20.1.0'
+          clang-format --version
+
+      - name: Check formatting
+        shell: pwsh
+        run: pwsh scripts/check-format.ps1
+
+  package:
+    name: package source + binary artifacts
+    runs-on: windows-latest
+    needs: [build, format]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage package
+        shell: pwsh
+        run: |
+          $version = (Get-Content version.txt -Raw).Trim()
+          $stage = Join-Path $env:RUNNER_TEMP 'pkg'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item include -Destination $stage -Recurse
+          Copy-Item src -Destination $stage -Recurse
+          Copy-Item docs/integration.md -Destination $stage -Recurse
+          Copy-Item version.txt,LICENSE -Destination $stage
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'xmake-package') | Out-Null
+          Copy-Item xmake-package/xmake.lua -Destination (Join-Path $stage 'xmake-package')
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath "blook-kchannel-$version-src.zip" -Force
+          $hash = (Get-FileHash "blook-kchannel-$version-src.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  blook-kchannel-$version-src.zip" | Out-File -Encoding ascii "blook-kchannel-$version-src.zip.sha256"
+          Get-ChildItem *.zip* | Select-Object Name,Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kchannel-src-package
+          path: |
+            blook-kchannel-*-src.zip
+            blook-kchannel-*-src.zip.sha256
+          if-no-files-found: error

@@ -9,6 +9,21 @@ project adheres to the ABI version in `include/blook/kchannel.h`
 
 ### Added
 
+- Implementation: src/common (SHA-256, HMAC-SHA256, ChaCha20, AES-128-CTR,
+  SPSC byte rings, record framing, protocol reactor), src/user (attach /
+  bootstrap / handshake / call / ping / detach / events / stats) and
+  src/kernel (single PASSIVE_LEVEL worker with adaptive backoff, MAPPED and
+  COPY modes, watchdog, peer-gone reporting, no CNG dependency).
+- Host unit suite (41 tests): crypto RFC vectors, ABI layout, ring corruption,
+  framing tamper/truncation, in-process mock kernel end-to-end, replay and
+  malformed-input fuzz.
+- Guest e2e assets: kchannel_test.sys (echo/delay/error/crash/emit handlers,
+  mapped + SCM load paths), kcmapload.sys (minimal manual-map loader) and
+  kchannel-ctl.exe (functional matrix, latency, idle CPU, wrong-key,
+  second-attach, loader-kill, trace scan).
+- CI (ci.yml: build + unit tests + format + source package) and release
+  workflow on *; package manifest and scripts/publish-registry.ps1.
+
 - Authoritative ABI headers `include/blook/kchannel.h` and
   `include/blook/kchannel_km.h` (ABI 1.0):
   - `kc_bootstrap` (0x80 bytes) delivered through the manual-map entry
