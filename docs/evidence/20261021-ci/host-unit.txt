@@ -1,0 +1,102 @@
+[==========] Running 41 tests from 5 test suites.
+[----------] Global test environment set-up.
+[----------] 7 tests from Abi
+[ RUN      ] Abi.MagicValues
+[       OK ] Abi.MagicValues (0 ms)
+[ RUN      ] Abi.BootstrapLayout
+[       OK ] Abi.BootstrapLayout (0 ms)
+[ RUN      ] Abi.ControlPageLayout
+[       OK ] Abi.ControlPageLayout (0 ms)
+[ RUN      ] Abi.WireLayout
+[       OK ] Abi.WireLayout (0 ms)
+[ RUN      ] Abi.RingGeometry
+[       OK ] Abi.RingGeometry (0 ms)
+[ RUN      ] Abi.StatusValues
+[       OK ] Abi.StatusValues (0 ms)
+[ RUN      ] Abi.StatesAndOpcodes
+[       OK ] Abi.StatesAndOpcodes (0 ms)
+[----------] 7 tests from Abi (0 ms total)
+
+[----------] 5 tests from Crypto
+[ RUN      ] Crypto.Sha256KnownVectors
+[       OK ] Crypto.Sha256KnownVectors (8 ms)
+[ RUN      ] Crypto.HmacSha256Rfc4231
+[       OK ] Crypto.HmacSha256Rfc4231 (0 ms)
+[ RUN      ] Crypto.ChaCha20Rfc8439
+[       OK ] Crypto.ChaCha20Rfc8439 (0 ms)
+[ RUN      ] Crypto.Aes128CtrSp80038a
+[       OK ] Crypto.Aes128CtrSp80038a (0 ms)
+[ RUN      ] Crypto.ConstantTimeCompare
+[       OK ] Crypto.ConstantTimeCompare (0 ms)
+[----------] 5 tests from Crypto (8 ms total)
+
+[----------] 7 tests from Framing
+[ RUN      ] Framing.RoundTripChaCha20
+[       OK ] Framing.RoundTripChaCha20 (0 ms)
+[ RUN      ] Framing.RoundTripAes128Ctr
+[       OK ] Framing.RoundTripAes128Ctr (0 ms)
+[ RUN      ] Framing.RejectsTamperedAad
+[       OK ] Framing.RejectsTamperedAad (0 ms)
+[ RUN      ] Framing.RejectsStructuralCorruption
+[       OK ] Framing.RejectsStructuralCorruption (0 ms)
+[ RUN      ] Framing.EnforcesChaCha20SequenceCeiling
+[       OK ] Framing.EnforcesChaCha20SequenceCeiling (0 ms)
+[ RUN      ] Framing.SessionTagDependsOnEveryInput
+[       OK ] Framing.SessionTagDependsOnEveryInput (0 ms)
+[ RUN      ] Framing.NonceDerivation
+[       OK ] Framing.NonceDerivation (0 ms)
+[----------] 7 tests from Framing (0 ms total)
+
+[----------] 15 tests from MockE2e
+[ RUN      ] MockE2e.AttachHandshakeAndEcho
+[       OK ] MockE2e.AttachHandshakeAndEcho (256 ms)
+[ RUN      ] MockE2e.EmptyPayloadAndUnknownOpcode
+[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (265 ms)
+[ RUN      ] MockE2e.PingAndState
+[       OK ] MockE2e.PingAndState (245 ms)
+[ RUN      ] MockE2e.LargePayload
+[       OK ] MockE2e.LargePayload (262 ms)
+[ RUN      ] MockE2e.WrongKeyRejected
+[       OK ] MockE2e.WrongKeyRejected (0 ms)
+[ RUN      ] MockE2e.TimeoutAndRecovery
+[       OK ] MockE2e.TimeoutAndRecovery (399 ms)
+[ RUN      ] MockE2e.EventDelivery
+[       OK ] MockE2e.EventDelivery (247 ms)
+[ RUN      ] MockE2e.DetachReportsPeerGone
+[       OK ] MockE2e.DetachReportsPeerGone (46 ms)
+[ RUN      ] MockE2e.WatchdogDetectsDeadPeer
+[       OK ] MockE2e.WatchdogDetectsDeadPeer (293 ms)
+[ RUN      ] MockE2e.TamperedControlPageFailsSession
+[       OK ] MockE2e.TamperedControlPageFailsSession (62 ms)
+[ RUN      ] MockE2e.MalformedRecordsDoNotCrash
+[       OK ] MockE2e.MalformedRecordsDoNotCrash (184 ms)
+[ RUN      ] MockE2e.CorruptRingPointersDoNotCrash
+[       OK ] MockE2e.CorruptRingPointersDoNotCrash (231 ms)
+[ RUN      ] MockE2e.ReplayedRecordRejected
+[       OK ] MockE2e.ReplayedRecordRejected (232 ms)
+[ RUN      ] MockE2e.InvalidAttachOptions
+[       OK ] MockE2e.InvalidAttachOptions (0 ms)
+[ RUN      ] MockE2e.Aes128CtrSession
+[       OK ] MockE2e.Aes128CtrSession (232 ms)
+[----------] 15 tests from MockE2e (2959 ms total)
+
+[----------] 7 tests from Ring
+[ RUN      ] Ring.PushPopSingle
+[       OK ] Ring.PushPopSingle (0 ms)
+[ RUN      ] Ring.WrapAround
+[       OK ] Ring.WrapAround (0 ms)
+[ RUN      ] Ring.FullAndEmpty
+[       OK ] Ring.FullAndEmpty (0 ms)
+[ RUN      ] Ring.RejectsCorruptHeadsAndTails
+[       OK ] Ring.RejectsCorruptHeadsAndTails (0 ms)
+[ RUN      ] Ring.RejectsCorruptRecords
+[       OK ] Ring.RejectsCorruptRecords (0 ms)
+[ RUN      ] Ring.RejectsInvalidGeometry
+[       OK ] Ring.RejectsInvalidGeometry (0 ms)
+[ RUN      ] Ring.PartialRecordIsCorrupt
+[       OK ] Ring.PartialRecordIsCorrupt (0 ms)
+[----------] 7 tests from Ring (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 41 tests from 5 test suites ran. (2967 ms total)
+[  PASSED  ] 41 tests.

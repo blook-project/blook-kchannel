@@ -91,7 +91,7 @@ if (Test-Path $versionsFile) {
     $lines = Get-Content $versionsFile | Where-Object { $_ -and ($_ -notmatch "^\s*$Version\s") }
 }
 $lines += "$Version $hash"
-$lines | Set-Content -Encoding ascii $versionsFile
+[System.IO.File]::WriteAllLines($versionsFile, [string[]]$lines)
 Write-Host "versions.txt updated:"
 Get-Content $versionsFile | ForEach-Object { Write-Host "  $_" }
 
