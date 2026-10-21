@@ -111,9 +111,9 @@ sc stop kcmapload >nul 2>&1
 sc delete kcmapload >nul 2>&1
 sc create kchannel_test type= kernel binPath= C:\Windows\System32\drivers\kchannel_test.sys start= demand >nul
 sc start kchannel_test >nul
-$(if ($true) { '' })
 "@
-Invoke-Exec -Name 'setup' -CommandLine ($setup -replace "`r`n", ' & ') -TimeoutSeconds 180 | Out-Null
+$setupLine = ($setup.TrimEnd() -replace "`r`n", ' & ')
+Invoke-Exec -Name 'setup' -CommandLine $setupLine -TimeoutSeconds 180 | Out-Null
 
 $ctl = "$guestDir\kchannel-ctl.exe"
 $checks = @()

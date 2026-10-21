@@ -49,82 +49,24 @@
 
 [----------] 4 tests from Fuzz
 [ RUN      ] Fuzz.MutatedFramesNeverCrash
-[       OK ] Fuzz.MutatedFramesNeverCrash (5 ms)
+[       OK ] Fuzz.MutatedFramesNeverCrash (4 ms)
 [ RUN      ] Fuzz.RandomBuffersNeverCrash
-[       OK ] Fuzz.RandomBuffersNeverCrash (14 ms)
+[       OK ] Fuzz.RandomBuffersNeverCrash (12 ms)
 [ RUN      ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash
-[       OK ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash (7 ms)
+[       OK ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash (6 ms)
 [ RUN      ] Fuzz.HostileControlPageThroughReactor
 [       OK ] Fuzz.HostileControlPageThroughReactor (0 ms)
-[----------] 4 tests from Fuzz (28 ms total)
+[----------] 4 tests from Fuzz (24 ms total)
 
 [----------] 19 tests from MockE2e
 [ RUN      ] MockE2e.AttachHandshakeAndEcho
-[       OK ] MockE2e.AttachHandshakeAndEcho (218 ms)
+[       OK ] MockE2e.AttachHandshakeAndEcho (217 ms)
 [ RUN      ] MockE2e.EmptyPayloadAndUnknownOpcode
-[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (216 ms)
+[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (201 ms)
 [ RUN      ] MockE2e.PingAndState
-[       OK ] MockE2e.PingAndState (216 ms)
+[       OK ] MockE2e.PingAndState (200 ms)
 [ RUN      ] MockE2e.LargePayload
-[       OK ] MockE2e.LargePayload (216 ms)
+[       OK ] MockE2e.LargePayload (232 ms)
 [ RUN      ] MockE2e.WrongKeyRejected
 [       OK ] MockE2e.WrongKeyRejected (0 ms)
 [ RUN      ] MockE2e.TimeoutAndRecovery
-[       OK ] MockE2e.TimeoutAndRecovery (387 ms)
-[ RUN      ] MockE2e.EventDelivery
-[       OK ] MockE2e.EventDelivery (216 ms)
-[ RUN      ] MockE2e.DetachReportsPeerGone
-[       OK ] MockE2e.DetachReportsPeerGone (15 ms)
-[ RUN      ] MockE2e.WatchdogDetectsDeadPeer
-[       OK ] MockE2e.WatchdogDetectsDeadPeer (263 ms)
-[ RUN      ] MockE2e.TamperedControlPageFailsSession
-[       OK ] MockE2e.TamperedControlPageFailsSession (32 ms)
-[ RUN      ] MockE2e.MalformedRecordsDoNotCrash
-[       OK ] MockE2e.MalformedRecordsDoNotCrash (60 ms)
-[ RUN      ] MockE2e.CorruptRingPointersDoNotCrash
-[       OK ] MockE2e.CorruptRingPointersDoNotCrash (231 ms)
-[ RUN      ] MockE2e.ReplayedRecordRejected
-[       OK ] MockE2e.ReplayedRecordRejected (215 ms)
-[ RUN      ] MockE2e.InvalidAttachOptions
-[       OK ] MockE2e.InvalidAttachOptions (0 ms)
-[ RUN      ] MockE2e.Aes128CtrSession
-[       OK ] MockE2e.Aes128CtrSession (200 ms)
-[ RUN      ] MockE2e.MaxPayloadWithLargeRegion
-[       OK ] MockE2e.MaxPayloadWithLargeRegion (216 ms)
-[ RUN      ] MockE2e.ConcurrentCallsAndEvents
-[       OK ] MockE2e.ConcurrentCallsAndEvents (245 ms)
-[ RUN      ] MockE2e.HeartbeatKeepsSessionAlive
-[       OK ] MockE2e.HeartbeatKeepsSessionAlive (2819 ms)
-[ RUN      ] MockE2e.KernelHeartbeatAdvances
-[       OK ] MockE2e.KernelHeartbeatAdvances (1022 ms)
-[----------] 19 tests from MockE2e (6799 ms total)
-
-[----------] 7 tests from Ring
-[ RUN      ] Ring.PushPopSingle
-[       OK ] Ring.PushPopSingle (0 ms)
-[ RUN      ] Ring.WrapAround
-[       OK ] Ring.WrapAround (0 ms)
-[ RUN      ] Ring.FullAndEmpty
-[       OK ] Ring.FullAndEmpty (0 ms)
-[ RUN      ] Ring.RejectsCorruptHeadsAndTails
-[       OK ] Ring.RejectsCorruptHeadsAndTails (0 ms)
-[ RUN      ] Ring.RejectsCorruptRecords
-[       OK ] Ring.RejectsCorruptRecords (0 ms)
-[ RUN      ] Ring.RejectsInvalidGeometry
-[       OK ] Ring.RejectsInvalidGeometry (0 ms)
-[ RUN      ] Ring.PartialRecordIsCorrupt
-[       OK ] Ring.PartialRecordIsCorrupt (0 ms)
-[----------] 7 tests from Ring (0 ms total)
-
-[----------] 3 tests from Wrapper
-[ RUN      ] Wrapper.AttachHandshakeCallDetach
-[       OK ] Wrapper.AttachHandshakeCallDetach (200 ms)
-[ RUN      ] Wrapper.StructCallAndMoveSemantics
-[       OK ] Wrapper.StructCallAndMoveSemantics (215 ms)
-[ RUN      ] Wrapper.AttachFailureIsReported
-[       OK ] Wrapper.AttachFailureIsReported (0 ms)
-[----------] 3 tests from Wrapper (416 ms total)
-
-[----------] Global test environment tear-down
-[==========] 52 tests from 7 test suites ran. (7252 ms total)
-[  PASSED  ] 52 tests.
