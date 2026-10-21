@@ -105,3 +105,28 @@ by 26100 with driver integrity checks enabled. SHA-256 remains rejected
 0x80096005 / error 577 — those are the two failure modes to avoid. CI runner
 `testsigning Yes` therefore does not explain the CI load; `/kp` + this
 testsigning-off VM run are the backing evidence.
+
+### KC-001 latest isolation (2026-10-21 21:30)
+
+With SPC SHA-1 signing working (see the signing section), the failure is:
+
+- `iso-attach` / `iso-c-attach` (attach with the loader exiting without a
+  clean `BYE`) is **intermittent**: it hung the guest in several runs, while an
+  earlier run of the same build completed (`iso-attach: ok, guest alive`).
+- When it hangs, the worker breadcrumb file (`C:\Windows\Temp\kchannel-wbc.txt`)
+  ends at `poll begin`, i.e. the guest stalls while the worker is inside
+  `Reactor::poll` after the loader has unmapped/closed the shared section.
+- Mitigations already in tree: worker stops on `FAILED`/`DEAD` state, and (in
+  MAPPED mode) holds a `PsLookupProcessByProcessId` reference so the worker can
+  see `PsGetProcessExitStatus != STATUS_PENDING` and stop before the mapping is
+  torn down. Neither has been proven to close the hang because the lab VM
+  itself is unstable under the current host conditions (VM/guest-agent timeouts,
+  host freezes, forks disappearing).
+- Hosted-CI host-mode runs the same sequence, so the full-matrix CI job can also
+  stall on this case; that is why `kernel-e2e` has a job timeout and why the tag
+  stays blocked.
+
+Next required step: a kernel-debugger session (`bvmenv kd` client mode) on a
+quiet host, breaking in when the guest is stalled to capture the worker stack in
+`Reactor::poll`. Offline dump analysis is not possible: the hang produces no
+bugcheck and no MEMORY.DMP.
