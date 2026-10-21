@@ -134,11 +134,7 @@ jobs:
     # hosted runner with an SPC-signed image (no test signing). This is real
     # kernel execution, not a mock: it proves handshake/echo on a stock OS.
     name: kernel-smoke (real load, SPC-signed)
-    # Server 2019 still accepts legacy cross-signed Authenticode; the Server
-    # 2025 image (windows-latest) rejects it with error 577, so this job pins
-    # the older image on purpose. Windows-2019 is retired by GitHub in 2025
-    # unless the repo keeps it; fall back to windows-2022 if needed.
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -181,7 +177,11 @@ jobs:
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SPC_PFX_BASE64))
           $password = ConvertTo-SecureString $env:SPC_PFX_PASSWORD -AsPlainText -Force
           Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+          # Legacy cross-signed kernel policy needs the TSA root trusted and the
+          # VeriSign CA chain present; without it /kp fails 0x80096010.
           certutil -addstore -f root signer\tsa\tsa-root.cer
+          certutil -addstore -f CA signer\certs\verisign-cscs-2010.cer
+          certutil -addstore -f CA signer\certs\verisign-g5-mcvr.cer
 
       - name: Sign drivers with the SPC signer
         shell: pwsh
