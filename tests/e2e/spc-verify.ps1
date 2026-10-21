@@ -32,6 +32,7 @@ function Save([string]$name, [string]$text) {
 }
 
 L 'SPC SHA-1 verification with explicit boot state'
+$bcdeditExe = 'bcdedit'
 & $Bvmenv stop $Vm 2>&1 | Out-Null
 & $Bvmenv delete $Vm --force 2>&1 | Out-Null
 & $Bvmenv create $Vm --cpus 4 --memory 6144 --no-start 2>&1 | Out-Null
@@ -39,13 +40,13 @@ L 'SPC SHA-1 verification with explicit boot state'
 if (-not (Wait-Guest)) { L 'guest not ready'; exit 1 }
 
 # boot / signing state
-$bcd = Run-Exec 'bcdedit /enum {current}' 60
+$bcd = Run-Exec ($bcdeditExe + ' /enum {current}') 60
 Save 'bcdedit-current.txt' (($bcd.Output -replace "`r`n", "`n"))
 L ('bcdedit: ' + (($bcd.Output -replace "`r`n", ' | ').Trim()))
-$globals = Run-Exec 'bcdedit /enum {globalsettings}' 60
+$globals = Run-Exec ($bcdeditExe + ' /enum {globalsettings}') 60
 Save 'bcdedit-globals.txt' (($globals.Output -replace "`r`n", "`n"))
 $ts = Run-Exec 'reg query "HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy" /v UpgradedSystem' 30
-$tsign = Run-Exec 'bcdedit /enum {current} | findstr /i testsigning' 30
+$tsign = Run-Exec ($bcdeditExe + ' /enum {current} | findstr /i testsigning') 30
 L ('testsigning line: ' + (($tsign.Output -replace "`r`n", ' | ').Trim()))
 
 # sign (record exact command)
@@ -103,13 +104,13 @@ $first = Try-Load 'load-before-testsigning-off'
 $tsOn = (($tsign.Output + $bcd.Output + $globals.Output) -match 'testsigning\s+Yes')
 if ($true) {
     L 'forcing testsigning off + nointegritychecks off, then rebooting'
-    $null = Run-Exec 'bcdedit /set testsigning off & bcdedit /set nointegritychecks off' 60
+    $null = Run-Exec ($bcdeditExe + ' /set testsigning off & ' + $bcdeditExe + ' /set nointegritychecks off') 60
     $null = Run-Exec 'shutdown /r /t 0' 20
     Start-Sleep -Seconds 15
     if (-not (Wait-Guest 60)) { L 'guest did not return after reboot'; & $Bvmenv stop $Vm 2>&1 | Out-Null; exit 1 }
-    $bcd2 = Run-Exec 'bcdedit /enum {current}' 60
+    $bcd2 = Run-Exec ($bcdeditExe + ' /enum {current}') 60
     Save 'bcdedit-current-testsigning-off.txt' (($bcd2.Output -replace "`r`n", "`n"))
-    $tsign2 = Run-Exec 'bcdedit /enum {current} | findstr /i testsigning' 30
+    $tsign2 = Run-Exec ($bcdeditExe + ' /enum {current} | findstr /i testsigning') 30
     L ('testsigning after reboot: ' + (($tsign2.Output -replace "`r`n", ' | ').Trim()))
     $kp2 = Run-Exec 'C:\blook\signtool.exe verify /kp /v C:\blook\kchannel_test.sys' 120
     Save 'signtool-kp-testsigning-off.txt' (($kp2.Output -replace "`r`n", "`n"))
