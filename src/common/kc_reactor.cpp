@@ -388,8 +388,10 @@ void Reactor::tick() {
     const uint64_t now = cfg_.now_ns(cfg_.now_ctx);
     if (now > last_kernel_hb_ns_ &&
         now - last_kernel_hb_ns_ >= KC_HEARTBEAT_INTERVAL_MS * kNsPerMs) {
+        debug_log("reactor: before lock");
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
+            debug_log("reactor: lock ok");
         }
         write_ctrl64(ctrl_off_hb(), now);
         if (cfg_.unlock != nullptr) {
@@ -408,8 +410,10 @@ int Reactor::poll(int max_records) {
     int handled = 0;
     debug_log("reactor: poll enter");
     for (int i = 0; i < max_records; ++i) {
+        debug_log("reactor: before lock");
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
+            debug_log("reactor: lock ok");
         }
         debug_log("reactor: ctrl read begin");
         kc_status st = read_ctrl_snapshot();
@@ -460,8 +464,10 @@ void Reactor::send_reply_record(const kc_msg_header& request, uint16_t opcode,
      * records out of seq order, and the consumer's replay check would drop a
      * perfectly valid reply. */
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
+        debug_log("reactor: before lock");
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
+            debug_log("reactor: lock ok");
         }
         const uint64_t seq = tx_seq_next_++;
         uint32_t record_len = 0;
@@ -689,8 +695,10 @@ kc_status Reactor::emit(uint16_t op, const void* data, uint32_t len) {
         mem_copy(plain + KC_EVENT_PREFIX_SIZE, data, len);
     }
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
+        debug_log("reactor: before lock");
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
+            debug_log("reactor: lock ok");
         }
         const uint64_t seq = tx_seq_next_++;
         uint32_t record_len = 0;
