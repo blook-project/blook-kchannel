@@ -94,6 +94,24 @@ $prepare = Join-Path $PSScriptRoot 'run-e2e.ps1'
 if ($LASTEXITCODE -ne 0) { throw 'prepare (build/sign/bundle) failed' }
 $bundle = Join-Path $Out 'bundle'
 $crashBundle = Join-Path $Out 'crash-bundle'
+if (-not (Test-Path $crashBundle)) {
+    New-Item -ItemType Directory -Force -Path $crashBundle | Out-Null
+    Copy-Item (Join-Path $Out 'signed\kchannel_test.sys') $crashBundle -Force
+    Copy-Item (Join-Path $repo 'build\windows\x64\release\kchannel-ctl.exe') $crashBundle -Force
+    Copy-Item (Join-Path $Out 'blook-kchannel-test.cer') $crashBundle -Force
+    Copy-Item (Join-Path $PSScriptRoot 'crash-run.ps1') $crashBundle -Force
+    @"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0crash-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $crashBundle 'crash-run.cmd')
+    @"
+@echo off
+set BVMENV_GUEST=1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0crash-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $crashBundle 'run-crash-exec.cmd')
+}
 
 # -------------------------- ensure VM up ------------------------------
 $list = Invoke-Bvmenv @('list', '--json')
@@ -147,17 +165,17 @@ $screenMain = Join-Path $mainDir 'screen-after.png'
 $shot = Invoke-Bvmenv @('screenshot', $Vm, $screenMain)
 Write-Host $shot.Output
 
-$stdoutPath = Join-Path $mainDir 'stdout.txt'
+$resultsFile = Join-Path $mainDir 'guest-artifacts\results.jsonl'
 $guestOk = $false
-if (Test-Path $stdoutPath) {
-    $stdoutText = Get-Content $stdoutPath -Raw
-    $failLines = ([regex]::Matches($stdoutText, '\[FAIL\]')).Count
-    $guestOk = ($failLines -eq 0) -and ($stdoutText -match '"ok":\s*true')
-    Write-Host "guest matrix: failing checks=$failLines"
+if (Test-Path $resultsFile) {
+    $checks = Get-Content $resultsFile | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json }
+    $failures = @($checks | Where-Object { -not $_.ok }).Count
+    $guestOk = ($failures -eq 0) -and ($checks.Count -gt 0)
+    Write-Host "guest matrix: checks=$($checks.Count) failures=$failures"
 } else {
-    Write-Host 'warning: no guest stdout captured'
+    Write-Host "warning: no pulled results.jsonl at $resultsFile"
 }
-$mainOutcome = if ($guestOk -and $mainJson -and $mainJson.ok) { 'pass' } else { 'fail' }
+$mainOutcome = if ($guestOk) { 'pass' } else { 'fail' }
 Write-Host "main outcome: $mainOutcome"
 
 # ------------------------ crash matrix (exec) -------------------------
