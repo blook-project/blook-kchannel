@@ -36,8 +36,16 @@ if ($ImportTsaRoot) {
     }
 }
 
+$paths = @()
+foreach ($item in $Driver) {
+    foreach ($piece in ($item -split ",")) {
+        $trimmed = $piece.Trim().Trim("`").Trim("'")
+        if ($trimmed.Length -gt 0) { $paths += $trimmed }
+    }
+}
+
 $failed = 0
-foreach ($path in $Driver) {
+foreach ($path in $paths) {
     $resolved = (Resolve-Path -LiteralPath $path).Path
     $arguments = @('sign', '--cert', $Cert, '--tsa-time', $TsaTime)
     if ($Sha1) { $arguments += '--sha1' }

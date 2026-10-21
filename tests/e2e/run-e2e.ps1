@@ -140,7 +140,7 @@ New-Item -ItemType Directory -Force -Path $signed | Out-Null
 foreach ($file in @($driver, $mapper)) {
     Copy-Item $file (Join-Path $signed (Split-Path $file -Leaf)) -Force
 }
-& pwsh -NoProfile -File $signerScript -ImportTsaRoot -Driver @((Join-Path $signed 'kchannel_test.sys'), (Join-Path $signed 'kcmapload.sys'))
+& pwsh -NoProfile -File $signerScript -ImportTsaRoot -Driver ((Join-Path $signed 'kchannel_test.sys') + ',' + (Join-Path $signed 'kcmapload.sys'))
 if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
 Write-Host 'SPC-signed kchannel_test.sys and kcmapload.sys (legacy Authenticode)'
 $cerPath = Join-Path $Out 'blook-kchannel-xinda.cer'
