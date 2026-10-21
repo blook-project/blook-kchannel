@@ -19,7 +19,7 @@
 
 [----------] 5 tests from Crypto
 [ RUN      ] Crypto.Sha256KnownVectors
-[       OK ] Crypto.Sha256KnownVectors (8 ms)
+[       OK ] Crypto.Sha256KnownVectors (9 ms)
 [ RUN      ] Crypto.HmacSha256Rfc4231
 [       OK ] Crypto.HmacSha256Rfc4231 (0 ms)
 [ RUN      ] Crypto.ChaCha20Rfc8439
@@ -28,7 +28,7 @@
 [       OK ] Crypto.Aes128CtrSp80038a (0 ms)
 [ RUN      ] Crypto.ConstantTimeCompare
 [       OK ] Crypto.ConstantTimeCompare (0 ms)
-[----------] 5 tests from Crypto (8 ms total)
+[----------] 5 tests from Crypto (9 ms total)
 
 [----------] 7 tests from Framing
 [ RUN      ] Framing.RoundTripChaCha20
@@ -51,53 +51,53 @@
 [ RUN      ] Fuzz.MutatedFramesNeverCrash
 [       OK ] Fuzz.MutatedFramesNeverCrash (5 ms)
 [ RUN      ] Fuzz.RandomBuffersNeverCrash
-[       OK ] Fuzz.RandomBuffersNeverCrash (13 ms)
+[       OK ] Fuzz.RandomBuffersNeverCrash (12 ms)
 [ RUN      ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash
 [       OK ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash (7 ms)
 [ RUN      ] Fuzz.HostileControlPageThroughReactor
 [       OK ] Fuzz.HostileControlPageThroughReactor (0 ms)
-[----------] 4 tests from Fuzz (27 ms total)
+[----------] 4 tests from Fuzz (25 ms total)
 
 [----------] 19 tests from MockE2e
 [ RUN      ] MockE2e.AttachHandshakeAndEcho
-[       OK ] MockE2e.AttachHandshakeAndEcho (207 ms)
+[       OK ] MockE2e.AttachHandshakeAndEcho (213 ms)
 [ RUN      ] MockE2e.EmptyPayloadAndUnknownOpcode
-[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (213 ms)
+[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (200 ms)
 [ RUN      ] MockE2e.PingAndState
-[       OK ] MockE2e.PingAndState (217 ms)
+[       OK ] MockE2e.PingAndState (216 ms)
 [ RUN      ] MockE2e.LargePayload
-[       OK ] MockE2e.LargePayload (230 ms)
+[       OK ] MockE2e.LargePayload (229 ms)
 [ RUN      ] MockE2e.WrongKeyRejected
 [       OK ] MockE2e.WrongKeyRejected (0 ms)
 [ RUN      ] MockE2e.TimeoutAndRecovery
-[       OK ] MockE2e.TimeoutAndRecovery (386 ms)
+[       OK ] MockE2e.TimeoutAndRecovery (394 ms)
 [ RUN      ] MockE2e.EventDelivery
-[       OK ] MockE2e.EventDelivery (216 ms)
+[       OK ] MockE2e.EventDelivery (199 ms)
 [ RUN      ] MockE2e.DetachReportsPeerGone
-[       OK ] MockE2e.DetachReportsPeerGone (15 ms)
+[       OK ] MockE2e.DetachReportsPeerGone (30 ms)
 [ RUN      ] MockE2e.WatchdogDetectsDeadPeer
-[       OK ] MockE2e.WatchdogDetectsDeadPeer (258 ms)
+[       OK ] MockE2e.WatchdogDetectsDeadPeer (260 ms)
 [ RUN      ] MockE2e.TamperedControlPageFailsSession
 [       OK ] MockE2e.TamperedControlPageFailsSession (15 ms)
 [ RUN      ] MockE2e.MalformedRecordsDoNotCrash
-[       OK ] MockE2e.MalformedRecordsDoNotCrash (91 ms)
+[       OK ] MockE2e.MalformedRecordsDoNotCrash (76 ms)
 [ RUN      ] MockE2e.CorruptRingPointersDoNotCrash
-[       OK ] MockE2e.CorruptRingPointersDoNotCrash (230 ms)
+[       OK ] MockE2e.CorruptRingPointersDoNotCrash (229 ms)
 [ RUN      ] MockE2e.ReplayedRecordRejected
-[       OK ] MockE2e.ReplayedRecordRejected (218 ms)
+[       OK ] MockE2e.ReplayedRecordRejected (216 ms)
 [ RUN      ] MockE2e.InvalidAttachOptions
 [       OK ] MockE2e.InvalidAttachOptions (0 ms)
 [ RUN      ] MockE2e.Aes128CtrSession
-[       OK ] MockE2e.Aes128CtrSession (200 ms)
+[       OK ] MockE2e.Aes128CtrSession (199 ms)
 [ RUN      ] MockE2e.MaxPayloadWithLargeRegion
-[       OK ] MockE2e.MaxPayloadWithLargeRegion (235 ms)
+[       OK ] MockE2e.MaxPayloadWithLargeRegion (212 ms)
 [ RUN      ] MockE2e.ConcurrentCallsAndEvents
-[       OK ] MockE2e.ConcurrentCallsAndEvents (234 ms)
+[       OK ] MockE2e.ConcurrentCallsAndEvents (231 ms)
 [ RUN      ] MockE2e.HeartbeatKeepsSessionAlive
-[       OK ] MockE2e.HeartbeatKeepsSessionAlive (2829 ms)
+[       OK ] MockE2e.HeartbeatKeepsSessionAlive (2807 ms)
 [ RUN      ] MockE2e.KernelHeartbeatAdvances
-[       OK ] MockE2e.KernelHeartbeatAdvances (1004 ms)
-[----------] 19 tests from MockE2e (6808 ms total)
+[       OK ] MockE2e.KernelHeartbeatAdvances (1030 ms)
+[----------] 19 tests from MockE2e (6764 ms total)
 
 [----------] 7 tests from Ring
 [ RUN      ] Ring.PushPopSingle
@@ -118,13 +118,13 @@
 
 [----------] 3 tests from Wrapper
 [ RUN      ] Wrapper.AttachHandshakeCallDetach
-[       OK ] Wrapper.AttachHandshakeCallDetach (231 ms)
+[       OK ] Wrapper.AttachHandshakeCallDetach (203 ms)
 [ RUN      ] Wrapper.StructCallAndMoveSemantics
-[       OK ] Wrapper.StructCallAndMoveSemantics (218 ms)
+[       OK ] Wrapper.StructCallAndMoveSemantics (198 ms)
 [ RUN      ] Wrapper.AttachFailureIsReported
 [       OK ] Wrapper.AttachFailureIsReported (0 ms)
-[----------] 3 tests from Wrapper (449 ms total)
+[----------] 3 tests from Wrapper (402 ms total)
 
 [----------] Global test environment tear-down
-[==========] 52 tests from 7 test suites ran. (7294 ms total)
+[==========] 52 tests from 7 test suites ran. (7202 ms total)
 [  PASSED  ] 52 tests.

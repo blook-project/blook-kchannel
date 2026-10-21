@@ -175,6 +175,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0guest-run.ps1"
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Encoding ascii (Join-Path $bundle 'run-e2e.cmd')
 
+if () {
+    Write-Host 'prepare-only: build, tests, signing and bundle are ready'
+    exit 0
+}
+
 Write-Host '--- running main e2e matrix ---'
 $mainOut = Join-Path $Out 'main'
 $mainRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $bundle, '--entry', 'run-e2e.cmd',

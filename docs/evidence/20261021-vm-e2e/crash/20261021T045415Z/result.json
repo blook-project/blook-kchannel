@@ -1,9 +1,9 @@
 {
   "args": [],
-  "artifact_dir": "docs\\evidence\\20261021-vm-e2e\\main\\20261021T044417Z",
-  "bundle": "docs\\evidence\\20261021-vm-e2e\\bundle",
+  "artifact_dir": "docs\\evidence\\20261021-vm-e2e\\crash\\20261021T045415Z",
+  "bundle": "docs\\evidence\\20261021-vm-e2e\\crash-bundle",
   "duration_ms": 0,
-  "entry": "run-e2e.cmd",
+  "entry": "crash-run.cmd",
   "error": "VM 'vm-kchannel' did not become ready within 180s",
   "exec": {
     "duration_ms": 0,
@@ -28,9 +28,9 @@
     "reason": "",
     "strategy": ""
   },
-  "run_id": "20261021T044417Z",
+  "run_id": "20261021T045415Z",
   "schema": "bvmenv.e2e.v1",
-  "started_at": "2026-10-21T04:44:17Z",
+  "started_at": "2026-10-21T04:54:15Z",
   "state_after": {
     "guest_queryable": false,
     "hang": {

@@ -1,8 +1,8 @@
 {
   "schema": "blook-kchannel.e2e.v1",
   "vm": "vm-kchannel",
-  "repo_commit": "279319508cfe5de0d90be789ba999c841ba1ccb7",
-  "timestamp": "2026-10-21T12:50:22.1956872+08:00",
+  "repo_commit": "130538ea86a7c58c9f9261547588d532982ceb03",
+  "timestamp": "2026-10-21T12:57:17.3972226+08:00",
   "version": "1.0.0",
   "main_outcome": "error",
   "crash_outcome": "error",
