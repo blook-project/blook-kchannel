@@ -207,6 +207,14 @@ jobs:
           Copy-Item (Join-Path $env:RUNNER_TEMP 'xinda.cer') (Join-Path $bundle 'blook-kchannel-xinda.cer') -Force
           "KC_BUNDLE=$bundle" | Out-File -FilePath $env:GITHUB_ENV -Append
           Get-ChildItem $bundle | Select-Object Name, Length
+          # Evidence required by the QA gate: boot signing state + /kp verdict.
+          bcdedit /enum "{current}" | Out-File -Encoding utf8 (Join-Path $bundle 'bcdedit.txt')
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+              Where-Object { $_.FullName -match '\\x64\\' } | Select-Object -First 1
+          if ($null -eq $signtool) { throw 'signtool.exe not found on the runner' }
+          & $signtool.FullName verify /kp /v $driver 2>&1 | Out-File -Encoding utf8 (Join-Path $bundle 'signtool-kp.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'signtool verify /kp failed' }
+          Write-Host '/kp verified for kchannel_test.sys'
 
       - name: Run full e2e matrix (host mode)
         shell: pwsh
@@ -258,6 +266,8 @@ jobs:
           $passed = @($caseRows | Where-Object { $_.status -eq 'pass' }).Count
           $failedCount = @($caseRows | Where-Object { $_.status -eq 'fail' }).Count
           $summary = [ordered]@{
+              runner_testsigning = [bool](Get-Content (Join-Path $env:KC_BUNDLE 'bcdedit.txt') -Raw -ErrorAction SilentlyContinue | Select-String 'testsigning\\s+Yes')
+              kp_verified        = [bool](Get-Content (Join-Path $env:KC_BUNDLE 'signtool-kp.txt') -Raw -ErrorAction SilentlyContinue | Select-String 'Successfully verified')
               schema    = 'blook-kchannel.ci-e2e.v1'
               runner    = $env:RUNNER_OS
               commit    = $env:GITHUB_SHA
