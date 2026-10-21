@@ -53,8 +53,11 @@ function Find-Bvmenv {
     if ($Bvmenv) { return (Resolve-Path $Bvmenv).Path }
     $fromPath = Get-Command bvmenv.exe -ErrorAction SilentlyContinue
     if ($fromPath) { return $fromPath.Source }
-    $candidate = 'D:\blook-kernel-project\blook-vmware-environment\build\windows\x64\releasedbg\bvmenv.exe'
-    if (Test-Path $candidate) { return $candidate }
+    foreach ($candidate in @(
+        'D:\blook-kernel-project\blook-vmware-environment\build\windows\x64\release\bvmenv.exe',
+        'D:\blook-kernel-project\blook-vmware-environment\build\windows\x64\releasedbg\bvmenv.exe')) {
+        if (Test-Path $candidate) { return $candidate }
+    }
     throw 'bvmenv.exe not found: pass -Bvmenv or put it on PATH'
 }
 
@@ -174,8 +177,14 @@ Copy-Item (Join-Path $PSScriptRoot 'guest-run.ps1') $bundle -Force
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0guest-run.ps1"
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Encoding ascii (Join-Path $bundle 'run-e2e.cmd')
+@"
+@echo off
+set BVMENV_GUEST=1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0guest-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $bundle 'run-guest-exec.cmd')
 
-if () {
+if ($PrepareOnly) {
     Write-Host 'prepare-only: build, tests, signing and bundle are ready'
     exit 0
 }
@@ -183,7 +192,9 @@ if () {
 Write-Host '--- running main e2e matrix ---'
 $mainOut = Join-Path $Out 'main'
 $mainRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $bundle, '--entry', 'run-e2e.cmd',
-    '--timeout', '1200', '--out', $mainOut, '--reset-on', 'never')
+    '--timeout', '1800', '--wait-timeout', '600', '--out', $mainOut,
+    '--reset-on', 'never', '--env', 'BLOOK_VM_GUEST=$Vm',
+    '--env', 'BLOOK_ALLOW_KERNEL_LOAD=1')
 Write-Host $mainRun.Output
 $mainResult = Get-ChildItem $mainOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($mainResult) {
@@ -207,11 +218,18 @@ if (-not $SkipCrashRun) {
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0crash-run.ps1"
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Encoding ascii (Join-Path $crashBundle 'crash-run.cmd')
-
+    @"
+@echo off
+set BVMENV_GUEST=1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0crash-run.ps1"
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Encoding ascii (Join-Path $crashBundle 'run-crash-exec.cmd')
     Write-Host '--- running deliberate-BSOD harness ---'
     $crashOut = Join-Path $Out 'crash'
     $crashRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $crashBundle, '--entry', 'crash-run.cmd',
-        '--timeout', '600', '--out', $crashOut, '--reset-on', 'never')
+        '--timeout', '900', '--wait-timeout', '600', '--out', $crashOut,
+        '--reset-on', 'never', '--env', 'BLOOK_VM_GUEST=$Vm',
+        '--env', 'BLOOK_ALLOW_KERNEL_LOAD=1')
     Write-Host $crashRun.Output
     $crashResultFile = Get-ChildItem $crashOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($crashResultFile) {

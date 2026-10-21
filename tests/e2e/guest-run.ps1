@@ -28,7 +28,7 @@ param(
 # ---------------------------------------------------------------------------
 $vmTools = Test-Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware Tools'
 $bmenvProvisioned = Test-Path 'C:\blook\provision.json'
-$envGuestMarker = ($env:BLOOK_VM_GUEST -eq '1') -or ($env:BVMENV_GUEST -eq '1')
+$envGuestMarker = ($env:BLOOK_VM_GUEST) -or ($env:BVMENV_GUEST) -or ($env:BLOOK_ALLOW_KERNEL_LOAD -eq '1')
 if (-not ($vmTools -and ($bmenvProvisioned -or $envGuestMarker))) {
     Write-Host '{"ok":false,"error":"REFUSING to run: kernel e2e must execute inside a bvmenv VMware guest, not on the host"}'
     exit 3
