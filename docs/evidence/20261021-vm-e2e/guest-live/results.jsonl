@@ -1,0 +1,26 @@
+{"name":"prepare","ok":true,"detail":"bundle=C:\\blook\\kc-main"}
+{"name":"scm_load","ok":true,"detail":"; SERVICE_NAME: kchannel_test ;         TYPE               : 1  KERNEL_DRIVER  ;         STATE              : 4  RUNNING ;                                 (STOPPABLE, NOT_PAUSABLE, IGNORES_SHUTDOWN);         WIN32_EXIT_CODE    : 0  (0x0);         SERVICE_EXIT_CODE  : 0  (0x0);         CHECKPOINT         : 0x0;         WAIT_HINT          : 0x0;         PID                : 0;         FLAGS              :  status=Running"}
+{"name":"wrong_key_rejected","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_functional_matrix","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"second_attach_rejected","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_events","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_tamper_ring","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_alive_after_tamper_ring","ok":true,"detail":"status=Running"}
+{"name":"scm_tamper_geometry","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_alive_after_tamper_geometry","ok":true,"detail":"status=Running"}
+{"name":"scm_tamper_attach","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_alive_after_tamper_attach","ok":true,"detail":"status=Running"}
+{"name":"scm_tamper_record","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_alive_after_tamper_record","ok":true,"detail":"status=Running"}
+{"name":"scm_tamper_truncated","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_alive_after_tamper_truncated","ok":true,"detail":"status=Running"}
+{"name":"scm_latency_64b","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_latency_4kb","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_latency_64k","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_copy_latency_64b","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_copy_latency_4kb","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_worker_idle_cpu","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_worker_idle_cpu_copy","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_stop_latency","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_soak","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}"}
+{"name":"scm_loader_kill_recovery","ok":false,"detail":"{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\",\"win_error\":1359}\n{\"ok\":false,\"child_exit\":1,\"driver_state_after_watchdog\":4,\"recovered\":false}"}

@@ -217,7 +217,10 @@ bool attach_scm(Session* session, const Options& options, bool finish) {
     }
     if (!device_ioctl(session->device, KC_TEST_IOCTL_ATTACH, &session->boot,
                       sizeof(session->boot), nullptr, 0, nullptr)) {
-        print("{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\"}\n");
+        print(
+            "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
+            "failed\",\"win_error\":%lu}\n",
+            static_cast<unsigned long>(GetLastError()));
         return false;
     }
     if (finish) {
@@ -548,7 +551,10 @@ int command_wrong_key(const Options& options) {
     corrupted.session_key[31] ^= 0x0F;
     if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
                       sizeof(corrupted), nullptr, 0, nullptr)) {
-        print("{\"ok\":false,\"error\":\"IOCTL_ATTACH failed\"}\n");
+        print(
+            "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
+            "failed\",\"win_error\":%lu}\n",
+            static_cast<unsigned long>(GetLastError()));
         return 1;
     }
     const kc_status status = kc_attach_finish(session.client, 3000);

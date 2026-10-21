@@ -21,13 +21,19 @@ $ctl = Join-Path $bundle 'kchannel-ctl.exe'
 $driverDir = Join-Path $env:SystemRoot 'System32\drivers'
 
 
-# Remove any stale driver instance from a previous interrupted run so the
-# signed .sys can be copied (Windows locks loaded images).
+# Remove any stale driver instance from a previous interrupted run and wait
+# until the SCM really forgot it (a half-deleted service leaves an old device
+# whose default DACL belongs to the previous SYSTEM logon session -> 1359).
 foreach ($stale in @('kchannel_test', 'kcmapload')) {
-    sc.exe stop $stale 2>$null | Out-Null
-    sc.exe delete $stale 2>$null | Out-Null
+    for ($attempt = 0; $attempt -lt 40; ++$attempt) {
+        sc.exe stop $stale 2>$null | Out-Null
+        sc.exe delete $stale 2>$null | Out-Null
+        Start-Sleep -Milliseconds 250
+        $query = sc.exe query $stale 2>&1
+        if ($LASTEXITCODE -ne 0) { break }
+    }
 }
-Start-Sleep -Milliseconds 300$cert = Join-Path $bundle 'blook-kchannel-test.cer'
+Start-Sleep -Milliseconds 500Start-Sleep -Milliseconds 300$cert = Join-Path $bundle 'blook-kchannel-test.cer'
 if (Test-Path $cert) {
     certutil.exe -addstore -f Root $cert | Out-Null
     certutil.exe -addstore -f TrustedPublisher $cert | Out-Null
