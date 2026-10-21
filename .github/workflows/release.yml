@@ -65,7 +65,7 @@ jobs:
           Compress-Archive -Path "$binary/*" -DestinationPath "blook-kchannel-$version-windows-x64.zip" -Force
 
           New-Item -ItemType Directory -Force -Path $source | Out-Null
-          Copy-Item include,src -Destination $source -Recurse
+          Copy-Item include,src,examples -Destination $source -Recurse
           Copy-Item docs/integration.md,version.txt,LICENSE,README.md -Destination $source
           New-Item -ItemType Directory -Force -Path "$source/xmake-package" | Out-Null
           Copy-Item xmake-package/xmake.lua -Destination "$source/xmake-package"

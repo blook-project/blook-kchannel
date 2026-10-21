@@ -194,3 +194,28 @@ oversized request -> `KC_ERR_PARAM`; handler claiming `out_len > out_cap` ->
   `kc_kernel_config` gained `poll_idle_max_us` at the end. User API additions:
   `kc_tick`, `kc_set_event_handler`, `kc_get_stats`, `kc_attach_id`,
   `kc_state_error`.
+
+## 9. ABI change policy
+
+The header is the contract; downstream repositories vendor it (source drop or
+release asset) and compile against it.
+
+- **Patch releases** (`1.0.x`): documentation, bug fixes and *additive* API
+  (new functions, new trailing struct fields, new macros/flags). Existing
+  offsets, sizes, magic values, status codes and semantics never change.
+- **Minor bumps** (`KC_ABI_MINOR`): additive wire/protocol changes that a
+  1.0 peer must reject explicitly rather than mis-parse (for example a new
+  nonce scheme). Old peers keep working because version negotiation rejects
+  unknown values with `KC_ERR_VERSION`.
+- **Major bumps** (`KC_ABI_MAJOR`): any layout/offset/magic/semantics change.
+  Both sides must be rebuilt; the contract document and this page are updated
+  first.
+- Every breaking header change: bump `KC_ABI_MINOR`/`MAJOR`, update
+  `CHANGELOG.md`, update `docs/abi.md`, tag a release, and message every
+  consumer (`kdu`, `drv`, `drv-lite`). Consumers pin a tag or commit - never
+  `main`.
+- `static_assert`s in the header (C11 `_Static_assert` / C++ `static_assert`)
+  make accidental layout drift a compile error for every consumer, including
+  the C11 and C++17 compile-only consumers in `tests/abi-consumer`.
+- The CI `format` and `build` jobs plus the host unit suite (`tests/unit/abi_test.cpp`)
+  verify the layout against the contract table on every commit.
