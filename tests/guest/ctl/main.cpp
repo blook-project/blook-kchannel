@@ -386,6 +386,29 @@ std::vector<CheckResult> run_functional_tests(kc_client* client,
     return checks;
 }
 
+/* Debug helpers that isolate handshake/destroy failure paths. */
+int command_iso_attach(const Options& options, bool finish, bool destroy) {
+    Session session;
+    if (!attach_scm(&session, options, finish)) {
+        print("{\"ok\":false,\"error\":\"attach failed\"}\n");
+        return 1;
+    }
+    const kc_status finish_status =
+        finish ? KC_OK : kc_attach_finish(session.client, 3000);
+    bool destroy_ok = true;
+    if (destroy) {
+        kc_test_result result{};
+        DWORD returned = 0;
+        destroy_ok =
+            device_ioctl(session.device, KC_TEST_IOCTL_DESTROY, nullptr, 0,
+                         &result, sizeof(result), &returned);
+    }
+    print(
+        "{\"ok\":%s,\"finish\":\"%s\",\"destroy_ok\":%s}\n",
+        (destroy_ok && (!finish || finish_status == KC_OK)) ? "true" : "false",
+        kc_status_str(finish_status), destroy_ok ? "true" : "false");
+    return 0;
+}
 int command_state(const Options& options) {
     HANDLE device = open_device(options.device);
     if (device == nullptr) {
@@ -1150,6 +1173,15 @@ int main(int argc, char** argv) {
         return 3;
     }
     const Options options = parse_options(argc, argv);
+    if (options.command == "iso-attach") {
+        return command_iso_attach(options, false, false);
+    }
+    if (options.command == "iso-finish") {
+        return command_iso_attach(options, true, false);
+    }
+    if (options.command == "iso-destroy") {
+        return command_iso_attach(options, false, true);
+    }
     if (options.command == "state") {
         return command_state(options);
     }
