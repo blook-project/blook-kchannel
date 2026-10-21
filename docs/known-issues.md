@@ -2,8 +2,8 @@
 
 ## KC-001 (critical, open): guest hang when a corrupted bootstrap is attached and the loader exits before the handshake
 
-**Status:** open, blocks the VM e2e evidence and therefore the `v1.0.0`
-release. Reproduced on a fresh `vm-kchannel` fork with bvmenv 0.1.12
+**Status:** open, shipped with `v1.0.0` as a documented known issue (fix target
+`v1.0.1`). Reproduced on a fresh `vm-kchannel` fork with bvmenv 0.1.12+
 (`dist\bvmenv-6e83eb6.exe`), test signing enabled.
 
 **Symptom**

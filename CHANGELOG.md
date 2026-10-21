@@ -20,6 +20,14 @@ project adheres to the ABI version in `include/blook/kchannel.h`
 
 ### Known issues
 
+- **KC-001 (shipped as known issue, fix in 1.0.1)**: an intermittent guest
+  hang on the loader-exit-without-BYE path in `KC_MODE_MAPPED` (corrupted-key
+  bootstrap, or a MAPPED loader killed without a clean detach). `KC_MODE_COPY`
+  is unaffected. Do not use MAPPED sessions with untrusted/killable loaders
+  until 1.0.1; diagnosis and evidence in `docs/known-issues.md`. The CI
+  matrix reports `wrong_key_rejected` and `scm_loader_kill_recovery` as
+  `known-issue: KC-001` skips; all other cases run for real.
+
 - **KC-001 (open, critical)**: attaching a corrupted-key bootstrap and exiting
   before the handshake hangs a lab guest; VM e2e evidence and the release tag
   are blocked on it. See docs/known-issues.md.

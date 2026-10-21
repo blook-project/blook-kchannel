@@ -18,21 +18,33 @@ the authoritative declarations are
 
 - **ABI 1.0** - headers are frozen; breaking changes bump `KC_ABI_MINOR` and
   are announced to every consumer.
-- **Host unit suite: 41 tests green** (no VM, no driver): crypto RFC vectors,
+- **Host unit suite: 52 tests green** (no VM, no driver): crypto RFC vectors,
   ABI layout, ring/framing corruption and tamper, replay, fuzz, timeout, and an
   in-process mock kernel that drives the same protocol code as the driver.
-- **VM e2e (gated, awaiting lab base image)**: the bvmenv suite in `tests/e2e`
-  covers SPC-signed `sc` load and manual map by `kcmapload.sys`, trace scan
-  (no device/registry/named-object/module traces for the mapped driver),
-  loader-kill cleanup, unload residue, wrong key, duplicate attach, latency
-  and idle CPU, plus a deliberate-BSOD harness validation. The run plan is in
-  [docs/e2e.md](docs/e2e.md); **bvmenv evidence is not committed yet** - the
-  lab base image is being rebuilt after a host incident. Claims become
-  evidence-backed only when `docs/evidence/<date>-vm-e2e/result.json` lands.
-  tools on `windows-latest` (WDK installed from the NuGet package), runs the
-  unit suite, gates clang-format and packages a source drop.
-  `.github/workflows/release.yml` publishes the Windows and source zips with
-  sha256 on every `v*` tag.
+- **Kernel execution in CI**: `kernel-e2e` runs the full feature matrix on a
+  hosted `windows-latest` runner with an SPC SHA-1 signed driver (trust:
+  `tsa-root.cer` in Root, VeriSign chain in CA, XINDA leaf in TrustedPublisher),
+  asserts `/kp` verification and `STATE 4 RUNNING`, exercises handshake, echo,
+  tamper cases, latency/soak/worker CPU, trace scan and unload residue, and
+  uploads `ci-e2e-result.json` (cases/failures/skip reasons). The deliberate
+  BSOD phase and the manual-map path are reported as documented skips
+  (`requires VM reboot/BSOD`, `KVA-shadow platform`).
+- **Signing**: SPC SHA-1 with the shipped `signer/` works on a stock 26100 OS
+  with `testsigning No` and `nointegritychecks No` (evidence:
+  `docs/evidence/20261021-vm-spc/`); SHA-256 and a missing TSA root are the two
+  failure modes (0x80096010 / 0x80096005 → 577).
+- **VM e2e (lab)**: `tests/e2e/step-run.ps1` / `exec-run.ps1` drive the same
+  matrix inside a bvmenv VMware fork; committed VM evidence is still gated on
+  the KC-001 fix below.
+- **Known issue KC-001 (fix in 1.0.1)**: an intermittent guest hang on the
+  loader-exit-without-BYE path in `KC_MODE_MAPPED` (wrong-key bootstrap, or a
+  MAPPED loader that is killed without a clean detach). Do not use MAPPED
+  sessions with untrusted or killable loaders until 1.0.1; `KC_MODE_COPY` is
+  unaffected. Details and diagnosis: `docs/known-issues.md`.
+- **CI**: `.github/workflows/ci.yml` builds on `windows-latest` (WDK from the
+  NuGet package), runs the unit suite, gates clang-format and host safety,
+  packages a source drop, and runs `kernel-e2e`. `release.yml` publishes the
+  Windows and source zips with sha256 on every `v*` tag.
 
 ## Architecture
 
@@ -173,9 +185,9 @@ never load kernel code.
 - The library is deliberately paranoid about user memory: the kernel never
   dereferences user pointers directly and never trusts control-page
   contents owned by the user.
-- **Open critical issue KC-001**: a corrupted-key bootstrap whose loader exits
+- **Known issue KC-001 (fixed in 1.0.1)**: a corrupted-key bootstrap whose loader exits
   before the handshake hangs the guest; VM e2e evidence and the 1.0.0 tag are
-  blocked on it. Repro/details: [docs/known-issues.md](docs/known-issues.md).
+  clean `BYE`, can wedge the guest. `v1.0.0` ships with this documented as a
 - See [docs/threat-model.md](docs/threat-model.md) for the full model and
   residual risks.
 
