@@ -33,6 +33,13 @@ function Get-Field {
     return $property.Value
 }
 
+function Has-Field {
+    param($Object, [string]$Name)
+    if ($null -eq $Object) { return $false }
+    $property = $Object.PSObject.Properties[$Name]
+    return ($null -ne $property -and $null -ne $property.Value)
+}
+
 function Format-Ns([double]$Nanoseconds) {
     if ($Nanoseconds -le 0) { return '-' }
     if ($Nanoseconds -ge 1000) {
@@ -44,7 +51,7 @@ function Format-Ns([double]$Nanoseconds) {
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add('| Load path | Transport | Payload | median | p95 | p99 | cold median |')
 $lines.Add('|---|---|---|---|---|---|---|')
-$latencies = $metrics | Where-Object { (Get-Field $_ 'median_ns' $null) -ne '' }
+$latencies = $metrics | Where-Object { Has-Field $_ 'median_ns' }
 foreach ($entry in ($latencies | Sort-Object { Get-Field $_ 'mode' }, { Get-Field $_ 'transport' }, { Get-Field $_ 'payload' })) {
     $lines.Add(('| {0} | {1} | {2} B | {3} | {4} | {5} | {6} |' -f `
                 (Get-Field $entry 'mode' '?'), (Get-Field $entry 'transport' 'mapped'),
@@ -55,10 +62,10 @@ foreach ($entry in ($latencies | Sort-Object { Get-Field $_ 'mode' }, { Get-Fiel
                 (Format-Ns (Get-Field $entry 'cold_median_ns' 0))))
 }
 
-$stop = $metrics | Where-Object { (Get-Field $_ 'stop_ns' $null) -ne '' } | Select-Object -First 1
-$workerCpus = $metrics | Where-Object { (Get-Field $_ 'worker_cpu_percent' $null) -ne '' }
-$soaks = $metrics | Where-Object { (Get-Field $_ 'failures' $null) -ne '' }
-$traces = $metrics | Where-Object { (Get-Field $_ 'mapped_expectation' '') -ne '' }
+$stop = $metrics | Where-Object { Has-Field $_ 'stop_ns' } | Select-Object -First 1
+$workerCpus = $metrics | Where-Object { Has-Field $_ 'worker_cpu_percent' }
+$soaks = $metrics | Where-Object { Has-Field $_ 'failures' }
+$traces = $metrics | Where-Object { Has-Field $_ 'mapped_expectation' }
 
 $lines.Add('')
 $lines.Add('| Measurement | Value |')
