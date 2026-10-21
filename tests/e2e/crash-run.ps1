@@ -8,9 +8,10 @@
 # manual-maps test drivers. It must only ever run inside a bvmenv VMware guest
 # fork - never on the physical host. Refuse to continue otherwise.
 # ---------------------------------------------------------------------------
-$vmGuestMarker = (Test-Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware Tools') -and (Test-Path 'C:\blook\provision.json')
+$vmTools = Test-Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware Tools'
+$bmenvProvisioned = Test-Path 'C:\blook\provision.json'
 $envGuestMarker = ($env:BLOOK_VM_GUEST -eq '1') -or ($env:BVMENV_GUEST -eq '1')
-if (-not ($vmGuestMarker -or $envGuestMarker)) {
+if (-not ($vmTools -and ($bmenvProvisioned -or $envGuestMarker))) {
     Write-Host '{"ok":false,"error":"REFUSING to run: kernel e2e must execute inside a bvmenv VMware guest, not on the host"}'
     exit 3
 }

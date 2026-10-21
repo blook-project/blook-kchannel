@@ -21,12 +21,14 @@ the authoritative declarations are
 - **Host unit suite: 41 tests green** (no VM, no driver): crypto RFC vectors,
   ABI layout, ring/framing corruption and tamper, replay, fuzz, timeout, and an
   in-process mock kernel that drives the same protocol code as the driver.
-- **VM e2e**: test-signed `sc` load and manual map by `kcmapload.sys`, trace
-  scan (no device/registry/named-object/module traces for the mapped driver),
-  loader-kill cleanup, unload residue, wrong key, duplicate attach, latency and
-  idle CPU, plus a deliberate-BSOD harness validation. Evidence under
-  [`docs/evidence`](docs/evidence/).
-- **CI**: `.github/workflows/ci.yml` builds user + kernel targets and the guest
+- **VM e2e (gated, awaiting lab base image)**: the bvmenv suite in `tests/e2e`
+  covers test-signed `sc` load and manual map by `kcmapload.sys`, trace scan
+  (no device/registry/named-object/module traces for the mapped driver),
+  loader-kill cleanup, unload residue, wrong key, duplicate attach, latency
+  and idle CPU, plus a deliberate-BSOD harness validation. The run plan is in
+  [docs/e2e.md](docs/e2e.md); **bvmenv evidence is not committed yet** - the
+  lab base image is being rebuilt after a host incident. Claims become
+  evidence-backed only when `docs/evidence/<date>-vm-e2e/result.json` lands.
   tools on `windows-latest` (WDK installed from the NuGet package), runs the
   unit suite, gates clang-format and packages a source drop.
   `.github/workflows/release.yml` publishes the Windows and source zips with
