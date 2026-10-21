@@ -33,21 +33,16 @@ interval plus scheduling, well inside 100 ms.
 
 ## Measured numbers
 
-_To be filled from the VM e2e evidence run (`docs/evidence/<date>-vm-e2e/`)._
+Rendered automatically by `tests/e2e/render-performance.ps1` from
+`<evidence>/metrics.json` after each bvmenv e2e run (payloads 64 B / 4096 B,
+both load paths, MAPPED and COPY transports).
 
-| Scenario | median | p99 | cold median | notes |
-|---|---|---|---|---|
-| MAPPED (signed `sc` load) | pending | pending | pending | 64 B echo |
-| MAPPED (manual map) | pending | pending | pending | 64 B echo |
-| COPY mode | pending | pending | pending | 64 B echo, no resident mapping |
-| 64 KiB-class payload (65470 B) | pending | - | - | single call |
-| idle system CPU, MAPPED session | pending | - | - | 10 s sample |
-| idle system CPU, COPY session | pending | - | - | 10 s sample |
+<!-- PERF:START -->
+_Pending a VM e2e run (the lab base image is being rebuilt)._
+<!-- PERF:END -->
 
-Raw JSON is stored next to the evidence: `latency-scm.json`,
-`latency-mapped.json`, `idle-scm.json`, `idle-mapped.json`,
-`latency-copy.json`, `idle-copy.json`.
-
+Raw metric objects: `docs/evidence/<date>-vm-e2e/metrics.json`; the guest
+stdout that produced them is the bvmenv `stdout.txt` artifact of the same run.
 ## Why it is fast
 
 - One page-aligned region, no copies in MAPPED mode: the kernel owns a system

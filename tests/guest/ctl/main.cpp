@@ -483,12 +483,14 @@ int command_latency(const Options& options) {
     std::sort(cold_sorted.begin(), cold_sorted.end());
     const uint64_t cold_median = cold_sorted[cold_sorted.size() / 2];
     print(
-        "{\"ok\":true,\"mode\":\"%s\",\"cipher\":\"%s\",\"region\":%u,"
+        "{\"ok\":true,\"mode\":\"%s\",\"transport\":\"%s\",\"cipher\":\"%s\","
+        "\"region\":%u,"
         "\"calls\":%u,\"payload\":%u,\"median_ns\":%llu,\"p90_ns\":%llu,"
         "\"p95_ns\":%llu,\"p99_ns\":%llu,\"min_ns\":%llu,\"max_ns\":%llu,"
         "\"cold_median_ns\":%llu}\n",
-        options.image.empty() ? "scm" : "mapped", options.cipher.c_str(),
-        options.region, options.count, options.payload,
+        options.image.empty() ? "scm" : "mapped",
+        options.mode == KC_MODE_COPY ? "copy" : "mapped",
+        options.cipher.c_str(), options.region, options.count, options.payload,
         static_cast<unsigned long long>(median),
         static_cast<unsigned long long>(p90),
         static_cast<unsigned long long>(p95),

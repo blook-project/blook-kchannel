@@ -213,6 +213,31 @@ exit /b %ERRORLEVEL%
         Write-Host "crash outcome: $($crashJson.outcome)"
     }
 }
+# ------------------------- metrics extraction ------------------------
+# Pull every JSON object the guest printed out of the captured stdout so the
+# evidence directory gets machine-readable numbers even though bvmenv does not
+# pull the bundle back. render-performance.ps1 then refreshes docs/performance.md.
+$metricObjects = New-Object System.Collections.Generic.List[object]
+$mainStdout = Get-ChildItem $mainOut -Recurse -Filter stdout.txt -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($mainStdout) {
+    $text = Get-Content $mainStdout.FullName -Raw
+    foreach ($match in [regex]::Matches($text, '\{[^\r\n]*\}')) {
+        $candidate = $match.Value
+        if ($candidate -notmatch '"median_ns"|"worker_cpu_percent"|"stop_ns"|"mapped_expectation"|"system_busy_percent"') {
+            continue
+        }
+        try { $metricObjects.Add(($candidate | ConvertFrom-Json)) } catch { }
+    }
+}
+ConvertTo-Json -InputObject @($metricObjects) -Depth 6 |
+    Set-Content (Join-Path $Out 'metrics.json')
+Write-Host "metrics: $($metricObjects.Count) objects -> metrics.json"
+$renderScript = Join-Path $PSScriptRoot 'render-performance.ps1'
+if (Test-Path $renderScript) {
+    & $renderScript -Evidence $Out -Doc (Join-Path $repo 'docs/performance.md')
+}
+
 
 # ---------------------------- summary --------------------------------
 $summary = [ordered]@{

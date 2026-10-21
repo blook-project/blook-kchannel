@@ -88,6 +88,14 @@ if has_config("kchannel_tests") then
         add_defines("NOMINMAX", version_define)
         set_encodings("utf-8")
 
+    target("kchannel-abi-cxx20")
+        set_kind("binary")
+        set_languages("cxx20")
+        add_files("tests/abi-consumer/consumer.cpp")
+        add_includedirs("include")
+        add_defines("NOMINMAX", version_define)
+        set_encodings("utf-8")
+
     target("kchannel-abi-cxx17")
         set_kind("binary")
         set_languages("cxx17")
