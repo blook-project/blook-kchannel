@@ -216,7 +216,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Push-Location $env:KC_BUNDLE
           try {
-              & pwsh -NoProfile -File (Join-Path $env:KC_BUNDLE 'guest-run.ps1') 2>&1 |
+              & pwsh -NoProfile -File (Join-Path $env:KC_BUNDLE 'guest-run.ps1') -SkipMapped 2>&1 |
                   Tee-Object -FilePath (Join-Path $env:KC_BUNDLE 'stdout.txt')
               $runExit = $LASTEXITCODE
           }
