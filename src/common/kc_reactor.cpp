@@ -406,11 +406,14 @@ int Reactor::poll(int max_records) {
         return 0;
     }
     int handled = 0;
+    debug_log("reactor: poll enter");
     for (int i = 0; i < max_records; ++i) {
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
         }
+        debug_log("reactor: ctrl read begin");
         kc_status st = read_ctrl_snapshot();
+        debug_log("reactor: ctrl read done");
         if (st != KC_OK) {
             if (cfg_.unlock != nullptr) {
                 cfg_.unlock(cfg_.lock_ctx);
@@ -419,7 +422,9 @@ int Reactor::poll(int max_records) {
             break;
         }
         uint32_t record_len = 0;
+        debug_log("reactor: ring pop begin");
         st = ring_pop(&req_, cfg_.record_buf, cfg_.record_buf_cap, &record_len);
+        debug_log("reactor: ring pop done");
         if (cfg_.unlock != nullptr) {
             cfg_.unlock(cfg_.lock_ctx);
         }

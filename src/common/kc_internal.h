@@ -21,6 +21,14 @@ extern "C" unsigned long DbgPrint(const char* format, ...);
 #define KC_DEBUG_TRACE(...) ((void)0)
 #endif
 
+/* Optional debug sink (test builds only): null in production/user builds. */
+inline void (*g_debug_log)(const char* message) = nullptr;
+inline void debug_log(const char* message) {
+    if (g_debug_log != nullptr) {
+        g_debug_log(message);
+    }
+}
+
 namespace kc {
 
 inline void mem_copy(void* dst, const void* src, uint32_t len) {

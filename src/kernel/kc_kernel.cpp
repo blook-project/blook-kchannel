@@ -630,6 +630,9 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
     kernel->attach_id = boot->attach_id;
     kernel->region_size = boot->shared_size;
     kernel->ring_size = static_cast<uint32_t>(ring_size);
+#if defined(KCHANNEL_TESTING)
+    ::g_debug_log = &KcWorkerBreadcrumb;
+#endif
     ExInitializeFastMutex(&kernel->lock);
     KeInitializeSpinLock(&kernel->handler_lock);
     KeInitializeEvent(&kernel->stop_event, NotificationEvent, FALSE);
