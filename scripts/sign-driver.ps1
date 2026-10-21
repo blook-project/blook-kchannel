@@ -38,8 +38,10 @@ if ($ImportTsaRoot) {
 
 $paths = @()
 foreach ($item in $Driver) {
-    foreach ($piece in ($item -split ",")) {
-        $trimmed = $piece.Trim().Trim("`").Trim("'")
+    foreach ($piece in ($item -split ',')) {
+        $trimmed = $piece.Trim()
+        if ($trimmed.StartsWith('"')) { $trimmed = $trimmed.Substring(1) }
+        if ($trimmed.EndsWith('"')) { $trimmed = $trimmed.Substring(0, $trimmed.Length - 1) }
         if ($trimmed.Length -gt 0) { $paths += $trimmed }
     }
 }
