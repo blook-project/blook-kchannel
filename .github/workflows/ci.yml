@@ -247,4 +247,3 @@ jobs:
             ${{ env.KC_BUNDLE }}
             C:\blook-kchannel-e2e.log
           if-no-files-found: warn
-
