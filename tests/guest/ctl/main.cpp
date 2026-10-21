@@ -394,14 +394,16 @@ int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     if (!open_test_device(&session, options.device)) {
         return 1;
     }
-    if (!attach_client(&session, options)) {
+    CtlBreadcrumb("iso: client attached");
+    `n if (!attach_client(&session, options)) {
         return 1;
     }
     kc_bootstrap corrupted = session.boot;
     corrupted.session_key[0] ^= 0xFF;
     corrupted.session_key[31] ^= 0x0F;
-    if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
-                      sizeof(corrupted), nullptr, 0, nullptr)) {
+    CtlBreadcrumb("iso: ioctl attach begin");
+    `n if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
+                         sizeof(corrupted), nullptr, 0, nullptr)) {
         print(
             "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
             "failed\",\"win_error\":%lu}\n",
@@ -421,6 +423,21 @@ int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     print("{\"ok\":true,\"finish\":\"%s\",\"destroy_ok\":%s}\n",
           kc_status_str(finish_status), destroy_ok ? "true" : "false");
     return 0;
+}
+/* User-side breadcrumbs for hang localization (test tool only). */
+void CtlBreadcrumb(const char* message) {
+    HANDLE file = CreateFileA("C:\\blook\\ctl-bc.txt", FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD written = 0;
+    WriteFile(file, message, static_cast<DWORD>(strlen(message)), &written,
+              nullptr);
+    WriteFile(file, "\r\n", 2, &written, nullptr);
+    FlushFileBuffers(file);
+    CloseHandle(file);
 }
 /* Debug helpers that isolate handshake/destroy failure paths. */
 int command_iso_attach(const Options& options, bool finish, bool destroy) {
@@ -608,8 +625,9 @@ int command_wrong_key(const Options& options) {
     kc_bootstrap corrupted = session.boot;
     corrupted.session_key[0] ^= 0xFF;
     corrupted.session_key[31] ^= 0x0F;
-    if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
-                      sizeof(corrupted), nullptr, 0, nullptr)) {
+    CtlBreadcrumb("iso: ioctl attach begin");
+    `n if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
+                         sizeof(corrupted), nullptr, 0, nullptr)) {
         print(
             "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
             "failed\",\"win_error\":%lu}\n",

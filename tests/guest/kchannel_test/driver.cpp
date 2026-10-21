@@ -321,13 +321,16 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
     ULONG information = 0;
     NTSTATUS status = STATUS_SUCCESS;
 
+    KcBreadcrumb("ioctl");
     switch (code) {
         case KC_TEST_IOCTL_ATTACH: {
+            KcBreadcrumb("attach begin");
             if (buffer == nullptr || input_length < sizeof(kc_bootstrap)) {
                 status = STATUS_INVALID_PARAMETER;
                 break;
             }
             status = StartKernel(static_cast<const kc_bootstrap*>(buffer));
+            KcBreadcrumb("attach end");
             break;
         }
         case KC_TEST_IOCTL_SECOND_ATTACH: {
@@ -388,11 +391,13 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
             break;
         }
         case KC_TEST_IOCTL_DESTROY: {
+            KcBreadcrumb("destroy begin");
             kc_kernel* kernel = g_kernel;
             g_kernel = nullptr;
             if (kernel != nullptr) {
                 kc_kernel_destroy(kernel);
             }
+            KcBreadcrumb("destroy end");
             if (output_length >= sizeof(kc_test_result)) {
                 kc_test_result* response = static_cast<kc_test_result*>(buffer);
                 response->status = KC_OK;
@@ -459,6 +464,7 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
             break;
     }
 
+    KcBreadcrumb("dispatch end");
     irp->IoStatus.Status = status;
     irp->IoStatus.Information = information;
     IoCompleteRequest(irp, IO_NO_INCREMENT);
