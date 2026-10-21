@@ -154,10 +154,11 @@ if (-not ($listJson.vms | Where-Object { $_.name -eq $Vm })) {
     $created = Invoke-Bvmenv @('create', $Vm, '--no-start')
     if ($created.ExitCode -ne 0) { throw "bvmenv create failed: $($created.Output)" }
 } else {
-    Write-Host "VM $Vm exists; resetting to base"
-    $reset = Invoke-Bvmenv @('reset', $Vm)
-    if ($reset.ExitCode -ne 0) { Write-Host "warning: reset failed: $($reset.Output)" }
+    Write-Host "VM $Vm exists; start is idempotent, no reset (forks disappear during base refreshes)"
 }
+Write-Host "starting VM $Vm (idempotent)"
+$startOut = Invoke-Bvmenv @('start', $Vm, '--no-wait')
+Write-Host $startOut.Output
 
 # --------------------------- main bundle -----------------------------
 $bundle = Join-Path $Out 'bundle'
@@ -205,7 +206,7 @@ exit /b %ERRORLEVEL%
     Write-Host '--- running deliberate-BSOD harness ---'
     $crashOut = Join-Path $Out 'crash'
     $crashRun = Invoke-Bvmenv @('e2e', $Vm, '--bundle', $crashBundle, '--entry', 'crash-run.cmd',
-        '--timeout', '600', '--out', $crashOut, '--reset-on', 'always')
+        '--timeout', '600', '--out', $crashOut, '--reset-on', 'never')
     Write-Host $crashRun.Output
     $crashResultFile = Get-ChildItem $crashOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($crashResultFile) {
@@ -217,6 +218,7 @@ exit /b %ERRORLEVEL%
 # Pull every JSON object the guest printed out of the captured stdout so the
 # evidence directory gets machine-readable numbers even though bvmenv does not
 # pull the bundle back. render-performance.ps1 then refreshes docs/performance.md.
+try {
 $metricObjects = New-Object System.Collections.Generic.List[object]
 $mainStdout = Get-ChildItem $mainOut -Recurse -Filter stdout.txt -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -233,6 +235,9 @@ if ($mainStdout) {
 ConvertTo-Json -InputObject @($metricObjects) -Depth 6 |
     Set-Content (Join-Path $Out 'metrics.json')
 Write-Host "metrics: $($metricObjects.Count) objects -> metrics.json"
+} catch {
+    Write-Host "warning: metrics extraction failed: $($_.Exception.Message)"
+}
 $renderScript = Join-Path $PSScriptRoot 'render-performance.ps1'
 if (Test-Path $renderScript) {
     & $renderScript -Evidence $Out -Doc (Join-Path $repo 'docs/performance.md')

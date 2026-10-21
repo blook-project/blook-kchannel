@@ -7,6 +7,29 @@ project adheres to the ABI version in `include/blook/kchannel.h`
 
 ## [1.0.0] - 2026-10-21
 
+### Hardening, tests and tooling (pre-1.0.0 work)
+
+- Host-safety guards: guest e2e scripts refuse to run outside a bvmenv VMware
+  guest (VMware Tools + provision marker or explicit guest env marker);
+  `kchannel-ctl` refuses driver IOCTLs outside a VMware guest; the host
+  orchestrator never loads drivers; `scripts/check-host-safety.ps1` + CI
+  `host-safety` job fail on any host-side driver-load pattern, CI workflow
+  driver load, or committed `.sys/.inf/.cat`.
+- Reactor concurrency fix: sequence reservation, sealing and ring publication
+  now happen in one critical section, so worker replies and `kc_kernel_emit`
+  events can never be observed out of sequence order (would have dropped a
+  valid reply under concurrent call+event traffic).
+- Watchdog clamp (`watchdog_ms >= 2 * heartbeat interval`) prevents false
+  peer-gone on a healthy idle session.
+- Extra host tests (52 total): 12k-iteration random-mutation fuzz for
+  framing/ring/reactor, concurrent call+event, heartbeat/watchdog edges,
+  64 KiB-class payload on a 0x100000 region, header-only C++ wrapper tests,
+  C11 / C++17 / C++20 compile-only ABI consumers.
+- Copy-mode e2e coverage, transport-tagged perf JSON, worker busy-cycle
+  diagnostics (`kc_kernel_worker_busy_cycles`, `kc_kernel_tsc_hz`) and
+  automatic performance-table rendering from evidence metrics.
+- Docs: ABI change policy, host-safety sections, examples README.
+
 ### Added
 
 - Implementation: src/common (SHA-256, HMAC-SHA256, ChaCha20, AES-128-CTR,
