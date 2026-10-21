@@ -7,6 +7,13 @@ project adheres to the ABI version in `include/blook/kchannel.h`
 
 ## [1.0.0] - 2026-10-21
 
+### Known issues
+
+- **KC-001 (open, critical)**: attaching a corrupted-key bootstrap and exiting
+  before the handshake hangs a lab guest; VM e2e evidence and the release tag
+  are blocked on it. See docs/known-issues.md.
+
+
 ### Hardening, tests and tooling (pre-1.0.0 work)
 
 - Host-safety guards: guest e2e scripts refuse to run outside a bvmenv VMware

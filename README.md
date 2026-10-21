@@ -173,6 +173,9 @@ never load kernel code.
 - The library is deliberately paranoid about user memory: the kernel never
   dereferences user pointers directly and never trusts control-page
   contents owned by the user.
+- **Open critical issue KC-001**: a corrupted-key bootstrap whose loader exits
+  before the handshake hangs the guest; VM e2e evidence and the 1.0.0 tag are
+  blocked on it. Repro/details: [docs/known-issues.md](docs/known-issues.md).
 - See [docs/threat-model.md](docs/threat-model.md) for the full model and
   residual risks.
 

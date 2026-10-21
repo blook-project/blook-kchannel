@@ -156,3 +156,5 @@ are working.
   plus a host-side `screenshot` next to each phase.
 - The host was power-cycled twice on 2026-10-21 while several guests were
   running; keep to the 2-guest budget and stop guests after each scenario.
+
+See [known-issues.md](known-issues.md) for the current lab/driver issues blocking the evidence run.
