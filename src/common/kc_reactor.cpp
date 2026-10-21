@@ -355,6 +355,7 @@ void Reactor::refresh_handshake_rx_prefix() {
 }
 
 void Reactor::check_watchdog(uint64_t now_ns) {
+    KC_DEBUG_TRACE("watchdog check state=%d", static_cast<int>(state_));
     if (state_ == KC_STATE_READY) {
         if (now_ns > created_ns_ &&
             now_ns - created_ns_ >

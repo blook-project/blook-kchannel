@@ -390,6 +390,7 @@ kc_status reject_bootstrap(const kc_bootstrap* boot, kc_status error) {
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
+    kc_state_t last_state = KC_STATE_EMPTY;
     uint32_t idle = 0;
     uint32_t busy_flush = 0;
     uint64_t busy_accum = 0;
@@ -558,6 +559,10 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
     }
 
     kernel->boot = *boot;
+    KC_TRACE("create: boot attach_id=%llu peer=%lu size=0x%x",
+             static_cast<unsigned long long>(boot->attach_id),
+             static_cast<unsigned long>(boot->peer_pid),
+             static_cast<unsigned long>(boot->shared_size));
     kernel->mode = boot->mode;
     kernel->cipher = boot->cipher;
     kernel->peer_pid = peer_pid;
