@@ -449,26 +449,23 @@ void Reactor::send_reply_record(const kc_msg_header& request, uint16_t opcode,
     if (state_ != KC_STATE_ACTIVE && state_ != KC_STATE_READY) {
         return;
     }
-    if (cfg_.lock != nullptr) {
-        cfg_.lock(cfg_.lock_ctx);
-    }
-    const uint64_t seq = tx_seq_next_++;
-    if (cfg_.unlock != nullptr) {
-        cfg_.unlock(cfg_.lock_ctx);
-    }
-    uint32_t record_len = 0;
-    kc_status st = frame_seal(&frames_, opcode, static_cast<uint32_t>(status),
-                              seq, request.request_id, payload, len,
-                              cfg_.reply_buf, cfg_.reply_buf_cap, &record_len);
-    if (st != KC_OK) {
-        fail_session(st);
-        return;
-    }
+    /* Sequence reservation AND the ring push must happen under the same lock:
+     * otherwise two producers (worker replies and kc_kernel_emit) can publish
+     * records out of seq order, and the consumer's replay check would drop a
+     * perfectly valid reply. */
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
         }
-        st = ring_push(&rsp_, cfg_.reply_buf, record_len);
+        const uint64_t seq = tx_seq_next_++;
+        uint32_t record_len = 0;
+        kc_status st =
+            frame_seal(&frames_, opcode, static_cast<uint32_t>(status), seq,
+                       request.request_id, payload, len, cfg_.reply_buf,
+                       cfg_.reply_buf_cap, &record_len);
+        if (st == KC_OK) {
+            st = ring_push(&rsp_, cfg_.reply_buf, record_len);
+        }
         if (cfg_.unlock != nullptr) {
             cfg_.unlock(cfg_.lock_ctx);
         }
@@ -489,7 +486,7 @@ void Reactor::send_reply_record(const kc_msg_header& request, uint16_t opcode,
     if (cfg_.lock != nullptr) {
         cfg_.lock(cfg_.lock_ctx);
     }
-    write_ctrl64(offsetof(kc_ctrl, last_error_seq), seq);
+    write_ctrl64(offsetof(kc_ctrl, last_error_seq), tx_seq_next_ - 1);
     if (cfg_.unlock != nullptr) {
         cfg_.unlock(cfg_.lock_ctx);
     }
@@ -678,31 +675,25 @@ kc_status Reactor::emit(uint16_t op, const void* data, uint32_t len) {
     if (len != 0 && data == nullptr) {
         return KC_ERR_PARAM;
     }
-    if (cfg_.lock != nullptr) {
-        cfg_.lock(cfg_.lock_ctx);
-    }
-    const uint64_t seq = tx_seq_next_++;
-    if (cfg_.unlock != nullptr) {
-        cfg_.unlock(cfg_.lock_ctx);
-    }
-    /* plaintext = u16 op || data */
+    /* plaintext = u16 op || data; seq reservation + seal + push are one
+     * critical section so concurrent producers cannot publish out of order. */
     uint8_t* plain = cfg_.event_buf;
     put_le32(plain, op);
     if (len != 0) {
         mem_copy(plain + KC_EVENT_PREFIX_SIZE, data, len);
     }
-    uint32_t record_len = 0;
-    kc_status st = frame_seal(&frames_, KC_OP_EVENT, 0, seq, 0, plain,
-                              len + KC_EVENT_PREFIX_SIZE, cfg_.event_record_buf,
-                              cfg_.event_record_buf_cap, &record_len);
-    if (st != KC_OK) {
-        return st;
-    }
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
         if (cfg_.lock != nullptr) {
             cfg_.lock(cfg_.lock_ctx);
         }
-        st = ring_push(&rsp_, cfg_.event_record_buf, record_len);
+        const uint64_t seq = tx_seq_next_++;
+        uint32_t record_len = 0;
+        kc_status st = frame_seal(
+            &frames_, KC_OP_EVENT, 0, seq, 0, plain, len + KC_EVENT_PREFIX_SIZE,
+            cfg_.event_record_buf, cfg_.event_record_buf_cap, &record_len);
+        if (st == KC_OK) {
+            st = ring_push(&rsp_, cfg_.event_record_buf, record_len);
+        }
         if (cfg_.unlock != nullptr) {
             cfg_.unlock(cfg_.lock_ctx);
         }
