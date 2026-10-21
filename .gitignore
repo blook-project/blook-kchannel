@@ -11,3 +11,8 @@
 /tests/e2e/out/
 /tests/e2e/tmp/
 /docs/evidence/**/*.raw
+
+# Never commit signed or compiled drivers/docs evidence binaries
+docs/evidence/**/signed/
+docs/evidence/**/*.sys
+docs/evidence/**/*.zip
