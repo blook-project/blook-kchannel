@@ -142,7 +142,7 @@ if ($list.ExitCode -ne 0) { throw "bvmenv list failed: $($list.Output)" }
 $listJson = $list.Output | ConvertFrom-Json
 if (-not ($listJson.vms | Where-Object { $_.name -eq $Vm })) {
     Write-Host "creating VM $Vm from base"
-    $created = Invoke-Bvmenv @('create', $Vm)
+    $created = Invoke-Bvmenv @('create', $Vm, '--no-start')
     if ($created.ExitCode -ne 0) { throw "bvmenv create failed: $($created.Output)" }
 } else {
     Write-Host "VM $Vm exists; resetting to base"
