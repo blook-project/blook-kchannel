@@ -43,7 +43,7 @@ class MockKernel {
         paused_ = paused;
         if (paused) {
             for (uint32_t i = 0; i < 500 && !pause_acked_.load(); ++i) {
-                Sleep(1);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         } else {
             pause_acked_ = false;
