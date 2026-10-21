@@ -386,6 +386,42 @@ std::vector<CheckResult> run_functional_tests(kc_client* client,
     return checks;
 }
 
+/* Corrupted-bootstrap isolation: attach with a wrong key, optionally finish
+ *
+ * the handshake and/or destroy the driver session. */
+int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
+    Session session;
+    if (!open_test_device(&session, options.device)) {
+        return 1;
+    }
+    if (!attach_client(&session, options)) {
+        return 1;
+    }
+    kc_bootstrap corrupted = session.boot;
+    corrupted.session_key[0] ^= 0xFF;
+    corrupted.session_key[31] ^= 0x0F;
+    if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
+                      sizeof(corrupted), nullptr, 0, nullptr)) {
+        print(
+            "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
+            "failed\",\"win_error\":%lu}\n",
+            static_cast<unsigned long>(GetLastError()));
+        return 1;
+    }
+    const kc_status finish_status =
+        finish ? kc_attach_finish(session.client, 3000) : KC_OK;
+    bool destroy_ok = true;
+    if (destroy) {
+        kc_test_result result{};
+        DWORD returned = 0;
+        destroy_ok =
+            device_ioctl(session.device, KC_TEST_IOCTL_DESTROY, nullptr, 0,
+                         &result, sizeof(result), &returned);
+    }
+    print("{\"ok\":true,\"finish\":\"%s\",\"destroy_ok\":%s}\n",
+          kc_status_str(finish_status), destroy_ok ? "true" : "false");
+    return 0;
+}
 /* Debug helpers that isolate handshake/destroy failure paths. */
 int command_iso_attach(const Options& options, bool finish, bool destroy) {
     Session session;
@@ -1173,6 +1209,15 @@ int main(int argc, char** argv) {
         return 3;
     }
     const Options options = parse_options(argc, argv);
+    if (options.command == "iso-c-attach") {
+        return command_iso_corrupt(options, false, false);
+    }
+    if (options.command == "iso-c-finish") {
+        return command_iso_corrupt(options, true, false);
+    }
+    if (options.command == "iso-c-destroy") {
+        return command_iso_corrupt(options, false, true);
+    }
     if (options.command == "iso-attach") {
         return command_iso_attach(options, false, false);
     }
