@@ -85,6 +85,11 @@ struct kc_kernel {
     uint32_t ring_size;
 
     PETHREAD thread;
+#if defined(KCHANNEL_TESTING)
+    volatile LONG worker_heartbeat;
+    volatile LONG worker_stage;
+    PETHREAD watchdog_thread;
+#endif
     KEVENT stop_event;
     volatile LONG stop_requested;
     volatile LONG destroy_pending;
@@ -429,6 +434,41 @@ void KcWorkerBreadcrumb(const char* message) {
 #define KcWorkerBreadcrumb(...) ((void)0)
 #endif
 
+#if defined(KCHANNEL_TESTING)
+/* Stall watchdog (test builds): if the worker heartbeat does not advance for
+ * ~3 s, bugcheck with a private code so the dump shows the stalled stack. */
+VOID StallWatchdogThread(PVOID context) {
+    auto* kernel = static_cast<kc_kernel*>(context);
+    LONG last = 0;
+    uint32_t stalls = 0;
+    for (;;) {
+        if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
+            break;
+        }
+        LARGE_INTEGER interval;
+        interval.QuadPart = -10ll * 1000ll * 1000ll; /* 1 s */
+        KeWaitForSingleObject(&kernel->stop_event, Executive, KernelMode, FALSE,
+                              &interval);
+        if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
+            break;
+        }
+        const LONG heartbeat =
+            InterlockedCompareExchange(&kernel->worker_heartbeat, 0, 0);
+        if (heartbeat == last) {
+            if (++stalls >= 3) {
+                const ULONG stage = static_cast<ULONG>(
+                    InterlockedCompareExchange(&kernel->worker_stage, 0, 0));
+                KeBugCheckEx(0xDEAD0001, static_cast<ULONG_PTR>(heartbeat),
+                             static_cast<ULONG_PTR>(stage), 0, 0);
+            }
+        } else {
+            stalls = 0;
+            last = heartbeat;
+        }
+    }
+}
+#endif
+
 bool PeerAliveCallback(void* context) {
     auto* kernel = static_cast<kc_kernel*>(context);
     if (kernel->peer_process == nullptr) {
@@ -445,6 +485,10 @@ VOID WorkerThread(PVOID context) {
     uint32_t busy_flush = 0;
     uint64_t busy_accum = 0;
     for (;;) {
+#if defined(KCHANNEL_TESTING)
+        InterlockedIncrement(&kernel->worker_heartbeat);
+        InterlockedExchange(&kernel->worker_stage, 1);
+#endif
         if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
             break;
         }
@@ -455,6 +499,9 @@ VOID WorkerThread(PVOID context) {
             KcWorkerBreadcrumb("peer exited");
             break;
         }
+#if defined(KCHANNEL_TESTING)
+        InterlockedExchange(&kernel->worker_stage, 2);
+#endif
         const int processed = kernel->reactor.poll(16);
         /* A failed session can never recover: stop the worker instead of
          * polling a region whose owner may already be gone. This avoids the
@@ -475,6 +522,9 @@ VOID WorkerThread(PVOID context) {
             break;
         }
         KcWorkerBreadcrumb("poll done");
+#if defined(KCHANNEL_TESTING)
+        InterlockedExchange(&kernel->worker_stage, 3);
+#endif
         if (processed > 0) {
             idle = 0;
             continue;
@@ -535,10 +585,16 @@ VOID WorkerThread(PVOID context) {
         }
         LARGE_INTEGER interval;
         interval.QuadPart = -static_cast<LONGLONG>(delay_us) * 10ll;
+#if defined(KCHANNEL_TESTING)
+        InterlockedExchange(&kernel->worker_stage, 4);
+#endif
         KcWorkerBreadcrumb("wait begin");
         KeWaitForSingleObject(&kernel->stop_event, Executive, KernelMode, FALSE,
                               &interval);
         KcWorkerBreadcrumb("wait done");
+#if defined(KCHANNEL_TESTING)
+        InterlockedExchange(&kernel->worker_stage, 5);
+#endif
         if (idle < 16) {
             ++idle;
         }
@@ -910,6 +966,24 @@ kc_status kc_kernel_start(kc_kernel* kernel) {
         return KC_ERR_INTERNAL;
     }
     kernel->thread = thread;
+#if defined(KCHANNEL_TESTING)
+    {
+        HANDLE watchdog_handle = nullptr;
+        NTSTATUS watchdog_status =
+            PsCreateSystemThread(&watchdog_handle, THREAD_ALL_ACCESS, nullptr,
+                                 nullptr, nullptr, StallWatchdogThread, kernel);
+        if (NT_SUCCESS(watchdog_status)) {
+            PETHREAD watchdog = nullptr;
+            if (NT_SUCCESS(ObReferenceObjectByHandle(
+                    watchdog_handle, THREAD_ALL_ACCESS, *PsThreadType,
+                    KernelMode, reinterpret_cast<PVOID*>(&watchdog),
+                    nullptr))) {
+                kernel->watchdog_thread = watchdog;
+            }
+            ZwClose(watchdog_handle);
+        }
+    }
+#endif
     return KC_OK;
 }
 
@@ -928,6 +1002,16 @@ void kc_kernel_stop(kc_kernel* kernel) {
         KC_TRACE("stop worker joined");
         ObDereferenceObject(kernel->thread);
         kernel->thread = nullptr;
+#if defined(KCHANNEL_TESTING)
+        if (kernel->watchdog_thread != nullptr) {
+            LARGE_INTEGER watchdog_timeout;
+            watchdog_timeout.QuadPart = -2ll * 1000ll * 1000ll; /* 2 s */
+            KeWaitForSingleObject(kernel->watchdog_thread, Executive,
+                                  KernelMode, FALSE, &watchdog_timeout);
+            ObDereferenceObject(kernel->watchdog_thread);
+            kernel->watchdog_thread = nullptr;
+        }
+#endif
     }
 }
 
