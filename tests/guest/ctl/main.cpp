@@ -304,8 +304,9 @@ bool attach_mapped(Session* session, const Options& options) {
     if (!ioctl_ok || result.status != KC_MAPLOAD_OK) {
         print(
             "{\"ok\":false,\"error\":\"map failed\",\"status\":%u,"
-            "\"entry\":%d}\n",
-            result.status, static_cast<int32_t>(result.entry_status));
+            "\"stage\":%u,\"entry\":%d}\n",
+            result.status, result.stage,
+            static_cast<int32_t>(result.entry_status));
         return false;
     }
     const kc_status status =
