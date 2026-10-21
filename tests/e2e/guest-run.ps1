@@ -78,7 +78,14 @@ if (Test-Path $cert) {
 }
 Copy-Item (Join-Path $bundle 'kchannel_test.sys') $driverDir -Force
 Copy-Item (Join-Path $bundle 'kcmapload.sys') $driverDir -Force
-Remove-Item 'C:\blook-kchannel-e2e.log' -ErrorAction SilentlyContinue
+
+# Remove any stale driver instance from a previous interrupted run so the
+# signed .sys can be copied (Windows locks loaded images).
+foreach ($stale in @('kchannel_test', 'kcmapload')) {
+    sc.exe stop $stale 2>$null | Out-Null
+    sc.exe delete $stale 2>$null | Out-Null
+}
+Start-Sleep -Milliseconds 300Remove-Item 'C:\blook-kchannel-e2e.log' -ErrorAction SilentlyContinue
 Record 'prepare' $true "bundle=$bundle"
 
 # ------------------------- phase A: SCM path -------------------------

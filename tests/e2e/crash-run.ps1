@@ -20,7 +20,14 @@ $bundle = $PSScriptRoot
 $ctl = Join-Path $bundle 'kchannel-ctl.exe'
 $driverDir = Join-Path $env:SystemRoot 'System32\drivers'
 
-$cert = Join-Path $bundle 'blook-kchannel-test.cer'
+
+# Remove any stale driver instance from a previous interrupted run so the
+# signed .sys can be copied (Windows locks loaded images).
+foreach ($stale in @('kchannel_test', 'kcmapload')) {
+    sc.exe stop $stale 2>$null | Out-Null
+    sc.exe delete $stale 2>$null | Out-Null
+}
+Start-Sleep -Milliseconds 300$cert = Join-Path $bundle 'blook-kchannel-test.cer'
 if (Test-Path $cert) {
     certutil.exe -addstore -f Root $cert | Out-Null
     certutil.exe -addstore -f TrustedPublisher $cert | Out-Null
