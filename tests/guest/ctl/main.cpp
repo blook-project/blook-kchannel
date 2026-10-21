@@ -942,10 +942,14 @@ bool scan_named_objects(NamedObjectScan* result) {
     std::vector<uint8_t> buffer(64 * 1024);
     ULONG context = 0;
     ULONG returned = 0;
-    for (;;) {
+    BOOLEAN restart =
+        TRUE; /* restart only on the first call; passing TRUE
+               * every time ignores the context and loops forever */
+    for (uint32_t iteration = 0; iteration < 4096; ++iteration) {
         const NTSTATUS status = NtQueryDirectoryObject(
             directory, buffer.data(), static_cast<ULONG>(buffer.size()), FALSE,
-            TRUE, &context, &returned);
+            restart, &context, &returned);
+        restart = FALSE;
         if (status == 0x80000005L /* STATUS_NO_MORE_ENTRIES */ ||
             returned == 0) {
             break;
