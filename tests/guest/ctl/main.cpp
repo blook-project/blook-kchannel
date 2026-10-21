@@ -1132,15 +1132,10 @@ int main(int argc, char** argv) {
      * inside a lab VM. Refuse to touch driver IOCTLs on a physical host unless
      * the operator explicitly opts in (e.g. a dedicated test machine). */
     if (!RunningInVmwareGuest()) {
-        const char* allow = getenv("KCHANNEL_ALLOW_HOST");
-        if (allow == nullptr || strcmp(allow, "1") != 0) {
-            fprintf(
-                stderr,
+        fprintf(stderr,
                 "{\"ok\":false,\"error\":\"REFUSING: kchannel-ctl must run "
-                "inside a bvmenv VMware guest (set KCHANNEL_ALLOW_HOST=1 to "
-                "override on a disposable test machine)\"}\n");
-            return 3;
-        }
+                "inside a bvmenv VMware guest\"}\n");
+        return 3;
     }
     const Options options = parse_options(argc, argv);
     if (options.command == "state") {
