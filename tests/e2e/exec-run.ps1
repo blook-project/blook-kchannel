@@ -105,7 +105,22 @@ if (-not ($listJson.vms | Where-Object { $_.name -eq $Vm })) {
     if ($created.ExitCode -ne 0) { throw 'bvmenv create failed' }
 }
 $started = Invoke-Bvmenv @('start', $Vm, '--no-wait')
-Write-Host $started.Output
+
+# The guest may still be booting (or sitting at the logon UI): exec falls back
+# to a SYSTEM scheduled task, so "guest ops respond" is the only prerequisite.
+Write-Host 'waiting for guest operations (exec fallback)...'
+$guestReady = $false
+for ($attempt = 0; $attempt -lt 60; ++$attempt) {
+    $probe = Invoke-Bvmenv @('exec', $Vm, '--timeout', '30', '--', 'cmd', '/c', 'echo kc-ready')
+    if ($probe.ExitCode -eq 0 -and $probe.Output -match 'kc-ready') {
+        $guestReady = $true
+        break
+    }
+    Start-Sleep -Seconds 10
+}
+if (-not $guestReady) {
+    throw "guest operations did not become available in VM '$Vm'"
+}Write-Host $started.Output
 
 # ------------------------- main matrix (exec) --------------------------
 $guestMain = 'C:\blook\kc-main'
