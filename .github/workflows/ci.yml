@@ -237,6 +237,13 @@ jobs:
           if ($failures.Count -ne 0) { throw 'e2e matrix reported failures' }
           if ($runExit -ne 0) { throw "guest-run exit code $runExit" }
           $skipCases = @(
+              [ordered]@{ name = 'mapped_functional'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_events'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_latency_64'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_latency_4096'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_soak'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_trace_scan'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'mapped_loader_kill'; status = 'skip'; reason = 'KVA-shadow platform' },
               [ordered]@{ name = 'crash_bsod_scm'; status = 'skip'; reason = 'requires VM reboot/BSOD' },
               [ordered]@{ name = 'crash_bsod_mapped'; status = 'skip'; reason = 'requires VM reboot/BSOD' }
           )
