@@ -33,6 +33,8 @@ DRIVER_UNLOAD KcMapUnload;
 
 namespace {
 
+static uint32_t g_map_stage = 0;
+
 PDEVICE_OBJECT g_device = nullptr;
 UNICODE_STRING g_symlink;
 
@@ -171,39 +173,63 @@ NTSTATUS MapAndCallEntry(const uint8_t* file, uint32_t file_size,
                          const kc_bootstrap* bootstrap, uint64_t* out_base,
                          uint64_t* out_size, NTSTATUS* out_entry_status) {
     if (file_size < sizeof(IMAGE_DOS_HEADER)) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        } /* stage 1 */
     }
     const IMAGE_DOS_HEADER* dos =
         reinterpret_cast<const IMAGE_DOS_HEADER*>(file);
     if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     const uint32_t nt_offset = static_cast<uint32_t>(dos->e_lfanew);
     if (nt_offset + sizeof(IMAGE_NT_HEADERS64) > file_size) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     const IMAGE_NT_HEADERS64* nt =
         reinterpret_cast<const IMAGE_NT_HEADERS64*>(file + nt_offset);
     if (nt->Signature != IMAGE_NT_SIGNATURE ||
         nt->FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 ||
         nt->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     const uint32_t size_of_image = nt->OptionalHeader.SizeOfImage;
     if (size_of_image < 0x1000 || size_of_image > 0x08000000) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     if (nt->OptionalHeader.SizeOfHeaders > file_size) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     const uint16_t section_count = nt->FileHeader.NumberOfSections;
     if (section_count > 96) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     const uint32_t section_table = nt_offset + sizeof(IMAGE_NT_HEADERS64);
     if (section_table + section_count * sizeof(IMAGE_SECTION_HEADER) >
         file_size) {
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
 
     uint8_t* image = static_cast<uint8_t*>(ExAllocatePool2(
@@ -226,7 +252,10 @@ NTSTATUS MapAndCallEntry(const uint8_t* file, uint32_t file_size,
             section.VirtualAddress >= size_of_image ||
             section.SizeOfRawData > size_of_image - section.VirtualAddress) {
             ExFreePoolWithTag(image, KC_MAPLOAD_POOL_TAG);
-            return STATUS_INVALID_IMAGE_FORMAT;
+            {
+                g_map_stage = __LINE__;
+                return STATUS_INVALID_IMAGE_FORMAT;
+            }
         }
         RtlCopyMemory(image + section.VirtualAddress,
                       file + section.PointerToRawData, section.SizeOfRawData);
@@ -236,11 +265,17 @@ NTSTATUS MapAndCallEntry(const uint8_t* file, uint32_t file_size,
             image, size_of_image, nt, reinterpret_cast<ULONG_PTR>(image),
             static_cast<ULONG_PTR>(nt->OptionalHeader.ImageBase))) {
         ExFreePoolWithTag(image, KC_MAPLOAD_POOL_TAG);
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
     if (!ResolveImports(image, size_of_image, nt)) {
         ExFreePoolWithTag(image, KC_MAPLOAD_POOL_TAG);
-        return STATUS_INVALID_IMAGE_FORMAT;
+        {
+            g_map_stage = __LINE__;
+            return STATUS_INVALID_IMAGE_FORMAT;
+        }
     }
 
     kc_bootstrap* boot_copy = static_cast<kc_bootstrap*>(ExAllocatePool2(
@@ -311,6 +346,7 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
                     static_cast<uint32_t>(request->image_size), &request->boot,
                     &image_base, &image_size, &entry_status);
                 if (!NT_SUCCESS(map_status)) {
+                    result->stage = g_map_stage;
                     result->status =
                         (map_status == STATUS_INSUFFICIENT_RESOURCES)
                             ? KC_MAPLOAD_ERR_NOMEM

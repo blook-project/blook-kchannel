@@ -28,3 +28,7 @@
 {"name":"mapped-latency-64","ok":false,"exit_code":1,"timed_out":false,"output_file":"26-mapped-latency-64.txt"}
 {"name":"mapped-latency-4096","ok":false,"exit_code":null,"timed_out":false,"output_file":"27-mapped-latency-4096.txt"}
 {"name":"mapped-soak","ok":false,"exit_code":null,"timed_out":false,"output_file":"28-mapped-soak.txt"}
+{"name":"mapped-trace-scan","ok":false,"exit_code":null,"timed_out":false,"output_file":"29-mapped-trace-scan.txt"}
+{"name":"mapped-loader-kill","ok":false,"exit_code":null,"timed_out":false,"output_file":"30-mapped-loader-kill.txt"}
+{"name":"traces","ok":false,"exit_code":null,"timed_out":false,"output_file":"31-traces.txt"}
+{"name":"cleanup","ok":false,"exit_code":null,"timed_out":false,"output_file":"32-cleanup.txt"}

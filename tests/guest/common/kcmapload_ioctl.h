@@ -31,6 +31,7 @@ typedef struct kc_mapload_request {
 } kc_mapload_request;
 
 typedef struct kc_mapload_result {
+    uint32_t stage;        /* failing mapper stage, 0 = ok (diagnostics) */
     uint32_t status;       /* kc_status-like: 0 ok, 1 param, 2 nomem, 3 map */
     uint32_t entry_status; /* NTSTATUS returned by the mapped DriverEntry */
     uint64_t image_base;
