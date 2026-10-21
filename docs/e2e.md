@@ -122,3 +122,37 @@ the base snapshot. `bvmenv e2e --reset-on always` is used for the crash run.
   with `bvmenv wait-ready vm-kchannel`.
 - Host-side screen classified as `bsod` on an idle VM is a false positive on
   the OOBE/login blue background; the `state.json` of the run is authoritative.
+
+## 7. Transports: `e2e` vs `exec`
+
+`bvmenv e2e` refuses to start until the guest reports an interactive "ready"
+desktop. Lab clones sometimes sit at the logon/lock UI (autologon flake) while
+guest operations already work through `bvmenv`'s SYSTEM fallback. Two runners
+exist for that reason:
+
+- `tests/e2e/run-e2e.ps1` - the normal path: `bvmenv e2e` with a 600 s ready
+  wait, per-run `--env BLOOK_VM_GUEST=<vm> --env BLOOK_ALLOW_KERNEL_LOAD=1`,
+  guest `[FAIL]`/`"ok":true` gating, and the deliberate-BSOD run.
+- `tests/e2e/exec-run.ps1` - fallback that uses the same bvmenv transport
+  directly: `push` the bundle, `exec` the guest runner (SYSTEM fallback works at
+  the logon UI), `pull` the results, and capture host-side state/screenshots.
+  Same guest scripts, same guards, same evidence content.
+
+Host budget: at most 2 lab guests at a time. Create one fork, run, then
+`bvmenv stop`/`reset` it; do not keep idle guests suspended while other owners
+are working.
+
+## 8. Known harness limitations (2026-10-21 lab)
+
+- `bvmenv e2e` readiness can time out on clones that stop at the logon UI;
+  use `exec-run.ps1` in that case (documented above).
+- A half-deleted kernel service from an interrupted run keeps a loaded image
+  and a device whose default DACL belongs to the previous SYSTEM logon session;
+  a later `DeviceIoControl` then fails with Win32 1359. Both guest scripts now
+  stop/delete stale services *and wait for the SCM to forget them* before
+  staging binaries.
+- `bvmenv state` requires guest operations; on a bugchecked/hung guest it
+  returns `bvmenv.error.v1` instead of state. The runner saves the raw error
+  plus a host-side `screenshot` next to each phase.
+- The host was power-cycled twice on 2026-10-21 while several guests were
+  running; keep to the 2-guest budget and stop guests after each scenario.

@@ -1,4 +1,4 @@
-[==========] Running 41 tests from 5 test suites.
+[==========] Running 52 tests from 7 test suites.
 [----------] Global test environment set-up.
 [----------] 7 tests from Abi
 [ RUN      ] Abi.MagicValues
@@ -47,38 +47,57 @@
 [       OK ] Framing.NonceDerivation (0 ms)
 [----------] 7 tests from Framing (0 ms total)
 
-[----------] 15 tests from MockE2e
+[----------] 4 tests from Fuzz
+[ RUN      ] Fuzz.MutatedFramesNeverCrash
+[       OK ] Fuzz.MutatedFramesNeverCrash (4 ms)
+[ RUN      ] Fuzz.RandomBuffersNeverCrash
+[       OK ] Fuzz.RandomBuffersNeverCrash (12 ms)
+[ RUN      ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash
+[       OK ] Fuzz.RingsWithRandomHeadsAndRecordsNeverCrash (6 ms)
+[ RUN      ] Fuzz.HostileControlPageThroughReactor
+[       OK ] Fuzz.HostileControlPageThroughReactor (0 ms)
+[----------] 4 tests from Fuzz (24 ms total)
+
+[----------] 19 tests from MockE2e
 [ RUN      ] MockE2e.AttachHandshakeAndEcho
-[       OK ] MockE2e.AttachHandshakeAndEcho (256 ms)
+[       OK ] MockE2e.AttachHandshakeAndEcho (207 ms)
 [ RUN      ] MockE2e.EmptyPayloadAndUnknownOpcode
-[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (265 ms)
+[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (200 ms)
 [ RUN      ] MockE2e.PingAndState
-[       OK ] MockE2e.PingAndState (245 ms)
+[       OK ] MockE2e.PingAndState (201 ms)
 [ RUN      ] MockE2e.LargePayload
-[       OK ] MockE2e.LargePayload (262 ms)
+[       OK ] MockE2e.LargePayload (231 ms)
 [ RUN      ] MockE2e.WrongKeyRejected
 [       OK ] MockE2e.WrongKeyRejected (0 ms)
 [ RUN      ] MockE2e.TimeoutAndRecovery
-[       OK ] MockE2e.TimeoutAndRecovery (399 ms)
+[       OK ] MockE2e.TimeoutAndRecovery (401 ms)
 [ RUN      ] MockE2e.EventDelivery
-[       OK ] MockE2e.EventDelivery (247 ms)
+[       OK ] MockE2e.EventDelivery (220 ms)
 [ RUN      ] MockE2e.DetachReportsPeerGone
-[       OK ] MockE2e.DetachReportsPeerGone (46 ms)
+[       OK ] MockE2e.DetachReportsPeerGone (64 ms)
 [ RUN      ] MockE2e.WatchdogDetectsDeadPeer
-[       OK ] MockE2e.WatchdogDetectsDeadPeer (293 ms)
+[       OK ] MockE2e.WatchdogDetectsDeadPeer (412 ms)
 [ RUN      ] MockE2e.TamperedControlPageFailsSession
-[       OK ] MockE2e.TamperedControlPageFailsSession (62 ms)
+[       OK ] MockE2e.TamperedControlPageFailsSession (114 ms)
 [ RUN      ] MockE2e.MalformedRecordsDoNotCrash
-[       OK ] MockE2e.MalformedRecordsDoNotCrash (184 ms)
+[       OK ] MockE2e.MalformedRecordsDoNotCrash (591 ms)
 [ RUN      ] MockE2e.CorruptRingPointersDoNotCrash
-[       OK ] MockE2e.CorruptRingPointersDoNotCrash (231 ms)
+[       OK ] MockE2e.CorruptRingPointersDoNotCrash (264 ms)
 [ RUN      ] MockE2e.ReplayedRecordRejected
-[       OK ] MockE2e.ReplayedRecordRejected (232 ms)
+[       OK ] MockE2e.ReplayedRecordRejected (260 ms)
 [ RUN      ] MockE2e.InvalidAttachOptions
 [       OK ] MockE2e.InvalidAttachOptions (0 ms)
 [ RUN      ] MockE2e.Aes128CtrSession
-[       OK ] MockE2e.Aes128CtrSession (232 ms)
-[----------] 15 tests from MockE2e (2959 ms total)
+[       OK ] MockE2e.Aes128CtrSession (227 ms)
+[ RUN      ] MockE2e.MaxPayloadWithLargeRegion
+[       OK ] MockE2e.MaxPayloadWithLargeRegion (232 ms)
+[ RUN      ] MockE2e.ConcurrentCallsAndEvents
+[       OK ] MockE2e.ConcurrentCallsAndEvents (1182 ms)
+[ RUN      ] MockE2e.HeartbeatKeepsSessionAlive
+[       OK ] MockE2e.HeartbeatKeepsSessionAlive (2819 ms)
+[ RUN      ] MockE2e.KernelHeartbeatAdvances
+[       OK ] MockE2e.KernelHeartbeatAdvances (1022 ms)
+[----------] 19 tests from MockE2e (8654 ms total)
 
 [----------] 7 tests from Ring
 [ RUN      ] Ring.PushPopSingle
@@ -97,6 +116,15 @@
 [       OK ] Ring.PartialRecordIsCorrupt (0 ms)
 [----------] 7 tests from Ring (0 ms total)
 
+[----------] 3 tests from Wrapper
+[ RUN      ] Wrapper.AttachHandshakeCallDetach
+[       OK ] Wrapper.AttachHandshakeCallDetach (201 ms)
+[ RUN      ] Wrapper.StructCallAndMoveSemantics
+[       OK ] Wrapper.StructCallAndMoveSemantics (217 ms)
+[ RUN      ] Wrapper.AttachFailureIsReported
+[       OK ] Wrapper.AttachFailureIsReported (0 ms)
+[----------] 3 tests from Wrapper (418 ms total)
+
 [----------] Global test environment tear-down
-[==========] 41 tests from 5 test suites ran. (2967 ms total)
-[  PASSED  ] 41 tests.
+[==========] 52 tests from 7 test suites ran. (9108 ms total)
+[  PASSED  ] 52 tests.

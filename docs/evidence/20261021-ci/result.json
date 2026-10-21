@@ -1,20 +1,20 @@
 {
   "schema": "blook-kchannel.ci-evidence.v1",
   "date": "2026-10-21",
-  "commit_when_run": "7abcd49",
-  "ci_run_url": "https://github.com/blook-project/blook-kchannel/actions/runs/39483176730",
+  "commit": "4ab8162",
+  "ci_run_url": "https://github.com/blook-project/blook-kchannel/actions/runs/39563665411",
   "ci_conclusion": "success",
   "jobs": {
     "build_and_unit_tests": "success",
     "clang_format": "success",
+    "host_safety_gate": "success",
     "source_package": "success"
   },
   "host_unit_tests": {
     "suite": "kchannel-unit-tests",
-    "passed": 41,
+    "passed": 52,
     "failed": 0,
-    "duration_ms_approx": 2900,
     "transcript": "host-unit.txt"
   },
-  "notes": "WDK installed in CI from the Microsoft.Windows.WDK.x64 NuGet package; kernel test driver builds but is not loaded on hosted runners (VM e2e covers loading)."
+  "notes": "WDK installed in CI from the Microsoft.Windows.WDK.x64 NuGet package. Kernel drivers build but are not loaded on hosted runners; kernel loading is only performed inside bvmenv VMware guests (host-safety gate enforces this)."
 }
