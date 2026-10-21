@@ -39,7 +39,12 @@
 #define KC_TEST_IOCTL_STATE KC_TEST_CTL(KC_TEST_FN_STATE)
 #define KC_TEST_IOCTL_EMIT KC_TEST_CTL(KC_TEST_FN_EMIT)
 #define KC_TEST_IOCTL_DESTROY KC_TEST_CTL(KC_TEST_FN_DESTROY)
+#define KC_TEST_FN_PERF_STATS 0x806u   /* out: kc_test_perf */
+#define KC_TEST_FN_STOP_RESTART 0x807u /* out: kc_test_stop */
+
 #define KC_TEST_IOCTL_DRIVER_OP KC_TEST_CTL(KC_TEST_FN_DRIVER_OP)
+#define KC_TEST_IOCTL_PERF_STATS KC_TEST_CTL(KC_TEST_FN_PERF_STATS)
+#define KC_TEST_IOCTL_STOP_RESTART KC_TEST_CTL(KC_TEST_FN_STOP_RESTART)
 
 /* Application opcodes served by kchannel_test.sys. */
 #define KC_TOp_ECHO 0x8001u
@@ -79,6 +84,17 @@ typedef struct kc_test_driver_op {
     uint32_t op;
     uint32_t value;
 } kc_test_driver_op;
+
+typedef struct kc_test_perf {
+    uint64_t worker_cycles;
+    uint64_t cycle_frequency;
+} kc_test_perf;
+
+typedef struct kc_test_stop {
+    uint32_t status;
+    uint32_t reserved;
+    uint64_t stop_ns;
+} kc_test_stop;
 
 /* kc_test_driver_op.op values */
 #define KC_TDRVOP_PING_THREAD 1u /* returns whether the worker is alive */

@@ -25,6 +25,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -70,6 +71,17 @@ typedef struct _KC_SYSTEM_MODULES {
 } KC_SYSTEM_MODULES;
 
 namespace {
+bool RunningInVmwareGuest() {
+    HKEY key = nullptr;
+    const LONG status = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+                                      L"SOFTWARE\\VMware, Inc.\\VMware Tools",
+                                      0, KEY_READ, &key);
+    if (status == ERROR_SUCCESS) {
+        RegCloseKey(key);
+        return true;
+    }
+    return false;
+}
 
 struct Options {
     std::string command;
@@ -82,6 +94,8 @@ struct Options {
     uint32_t count = 2000;
     uint32_t seconds = 10;
     uint32_t timeout_ms = 5000;
+    uint32_t payload = 64;
+    std::string case_name = "ring";
     bool json = true;
 };
 
@@ -420,15 +434,15 @@ int command_latency(const Options& options) {
     }
     std::vector<uint64_t> samples;
     samples.reserve(options.count);
-    char payload[64];
-    memset(payload, 0x5A, sizeof(payload));
-    char reply[64] = {0};
+    std::vector<uint8_t> payload(options.payload, 0x5A);
+    std::vector<uint8_t> reply(options.payload, 0);
     uint32_t reply_len = 0;
     for (uint32_t i = 0; i < options.count; ++i) {
         const uint64_t start = now_ns();
         const kc_status status =
-            kc_call(session.client, KC_TOp_ECHO, payload, sizeof(payload),
-                    reply, sizeof(reply), &reply_len, 3000);
+            kc_call(session.client, KC_TOp_ECHO, payload.data(),
+                    static_cast<uint32_t>(payload.size()), reply.data(),
+                    static_cast<uint32_t>(reply.size()), &reply_len, 3000);
         const uint64_t elapsed = now_ns() - start;
         if (status != KC_OK) {
             print(
@@ -461,6 +475,7 @@ int command_latency(const Options& options) {
     std::sort(sorted.begin(), sorted.end());
     const uint64_t median = sorted[sorted.size() / 2];
     const uint64_t p90 = percentile(samples, 0.90);
+    const uint64_t p95 = percentile(samples, 0.95);
     const uint64_t p99 = percentile(samples, 0.99);
     const uint64_t minimum = sorted.front();
     const uint64_t maximum = sorted.back();
@@ -469,11 +484,14 @@ int command_latency(const Options& options) {
     const uint64_t cold_median = cold_sorted[cold_sorted.size() / 2];
     print(
         "{\"ok\":true,\"mode\":\"%s\",\"cipher\":\"%s\",\"region\":%u,"
-        "\"calls\":%u,\"median_ns\":%llu,\"p90_ns\":%llu,\"p99_ns\":%llu,"
-        "\"min_ns\":%llu,\"max_ns\":%llu,\"cold_median_ns\":%llu}\n",
+        "\"calls\":%u,\"payload\":%u,\"median_ns\":%llu,\"p90_ns\":%llu,"
+        "\"p95_ns\":%llu,\"p99_ns\":%llu,\"min_ns\":%llu,\"max_ns\":%llu,"
+        "\"cold_median_ns\":%llu}\n",
         options.image.empty() ? "scm" : "mapped", options.cipher.c_str(),
-        options.region, options.count, static_cast<unsigned long long>(median),
+        options.region, options.count, options.payload,
+        static_cast<unsigned long long>(median),
         static_cast<unsigned long long>(p90),
+        static_cast<unsigned long long>(p95),
         static_cast<unsigned long long>(p99),
         static_cast<unsigned long long>(minimum),
         static_cast<unsigned long long>(maximum),
@@ -702,6 +720,199 @@ int command_crash(const Options& options) {
     return 1;
 }
 
+int command_worker_cpu(const Options& options) {
+    if (!options.image.empty()) {
+        print("{\"ok\":false,\"error\":\"worker-cpu needs the SCM device\"}\n");
+        return 1;
+    }
+    Session session;
+    if (!attach_scm(&session, options, true)) {
+        return 1;
+    }
+    auto read_perf = [&](uint64_t* cycles, uint64_t* frequency) -> bool {
+        kc_test_perf perf{};
+        DWORD returned = 0;
+        if (!device_ioctl(session.device, KC_TEST_IOCTL_PERF_STATS, nullptr, 0,
+                          &perf, sizeof(perf), &returned)) {
+            return false;
+        }
+        *cycles = perf.worker_cycles;
+        *frequency = perf.cycle_frequency;
+        return true;
+    };
+    uint64_t cycles_before = 0;
+    uint64_t frequency_before = 0;
+    if (!read_perf(&cycles_before, &frequency_before)) {
+        print("{\"ok\":false,\"error\":\"PERF_STATS failed\"}\n");
+        return 1;
+    }
+    Sleep(options.seconds * 1000);
+    uint64_t cycles_after = 0;
+    uint64_t frequency_after = 0;
+    if (!read_perf(&cycles_after, &frequency_after)) {
+        print("{\"ok\":false,\"error\":\"PERF_STATS failed\"}\n");
+        return 1;
+    }
+    const uint64_t frequency =
+        frequency_after != 0 ? frequency_after : frequency_before;
+    const uint64_t delta =
+        cycles_after > cycles_before ? cycles_after - cycles_before : 0;
+    const double percent = (frequency == 0 || options.seconds == 0)
+                               ? 0.0
+                               : (100.0 * static_cast<double>(delta) /
+                                  static_cast<double>(frequency) /
+                                  static_cast<double>(options.seconds));
+    print(
+        "{\"ok\":true,\"mode\":\"scm\",\"seconds\":%u,"
+        "\"worker_busy_cycles_delta\":%llu,\"tsc_hz\":%llu,"
+        "\"worker_cpu_percent\":%.4f}\n",
+        options.seconds, static_cast<unsigned long long>(delta),
+        static_cast<unsigned long long>(frequency), percent);
+    return 0;
+}
+
+int command_stop_latency(const Options& options) {
+    if (!options.image.empty()) {
+        print(
+            "{\"ok\":false,\"error\":\"stop-latency needs the SCM device\"}\n");
+        return 1;
+    }
+    Session session;
+    if (!attach_scm(&session, options, true)) {
+        return 1;
+    }
+    kc_test_stop stop{};
+    DWORD returned = 0;
+    const bool ioctl_ok =
+        device_ioctl(session.device, KC_TEST_IOCTL_STOP_RESTART, nullptr, 0,
+                     &stop, sizeof(stop), &returned);
+    const kc_status ping = kc_ping(session.client, 2000);
+    const bool ok = ioctl_ok && stop.status == KC_OK && ping == KC_OK;
+    print(
+        "{\"ok\":%s,\"stop_ns\":%llu,\"restart_status\":\"%s\","
+        "\"ping_after_restart\":\"%s\"}\n",
+        ok ? "true" : "false", static_cast<unsigned long long>(stop.stop_ns),
+        kc_status_str(static_cast<kc_status>(stop.status)),
+        kc_status_str(ping));
+    return ok ? 0 : 1;
+}
+
+int command_soak(const Options& options) {
+    Session session;
+    if (!attach_any(&session, options)) {
+        return 1;
+    }
+    std::vector<uint8_t> payload(options.payload, 0x5A);
+    std::vector<uint8_t> reply(options.payload, 0);
+    std::vector<uint64_t> samples;
+    samples.reserve(options.count);
+    uint32_t failures = 0;
+    uint32_t reply_len = 0;
+    const uint64_t started = now_ns();
+    for (uint32_t i = 0; i < options.count; ++i) {
+        const uint64_t call_start = now_ns();
+        const kc_status status =
+            kc_call(session.client, KC_TOp_ECHO, payload.data(),
+                    static_cast<uint32_t>(payload.size()), reply.data(),
+                    static_cast<uint32_t>(reply.size()), &reply_len, 3000);
+        samples.push_back(now_ns() - call_start);
+        if (status != KC_OK) {
+            ++failures;
+        }
+    }
+    const uint64_t elapsed = now_ns() - started;
+    std::sort(samples.begin(), samples.end());
+    auto percentile = [&](double p) -> uint64_t {
+        if (samples.empty()) {
+            return 0;
+        }
+        const size_t index = static_cast<size_t>(p * (samples.size() - 1));
+        return samples[index];
+    };
+    print(
+        "{\"ok\":%s,\"mode\":\"%s\",\"calls\":%u,\"payload\":%u,"
+        "\"failures\":%u,\"median_ns\":%llu,\"p95_ns\":%llu,\"p99_ns\":%llu,"
+        "\"max_ns\":%llu,\"total_ms\":%llu,\"calls_per_sec\":%.1f}\n",
+        failures == 0 ? "true" : "false",
+        options.image.empty() ? "scm" : "mapped", options.count,
+        options.payload, failures,
+        static_cast<unsigned long long>(percentile(0.5)),
+        static_cast<unsigned long long>(percentile(0.95)),
+        static_cast<unsigned long long>(percentile(0.99)),
+        static_cast<unsigned long long>(samples.back()),
+        static_cast<unsigned long long>(elapsed / 1000000ull),
+        elapsed == 0 ? 0.0
+                     : (static_cast<double>(options.count) * 1e9 /
+                        static_cast<double>(elapsed)));
+    return failures == 0 ? 0 : 1;
+}
+int command_tamper(const Options& options) {
+    if (!options.image.empty()) {
+        print("{\"ok\":false,\"error\":\"tamper needs the SCM device\"}\n");
+        return 1;
+    }
+    Session session;
+    if (!attach_scm(&session, options, true)) {
+        return 1;
+    }
+    kc_ctrl* ctrl = reinterpret_cast<kc_ctrl*>(
+        static_cast<uintptr_t>(session.boot.shared_va));
+    uint8_t* region = reinterpret_cast<uint8_t*>(ctrl);
+    const uint64_t ring_off = ctrl->req_off;
+    const uint64_t ring_size = ctrl->req_size;
+    const uint64_t tail = ctrl->req_tail;
+    const std::string& which = options.case_name;
+
+    if (which == "ring") {
+        ctrl->req_head = 0xDEADBEEFu;
+    } else if (which == "geometry") {
+        ctrl->rsp_off += 8;
+    } else if (which == "attach") {
+        ctrl->attach_id ^= 1;
+    } else if (which == "record") {
+        /* valid length, hostile record magic */
+        uint8_t* record = region + ring_off + tail;
+        memset(record, 0, 16);
+        const uint32_t length = 0x50;
+        memcpy(record, &length, sizeof(length));
+        const uint32_t magic = 0xDEADBEEF;
+        memcpy(record + 4, &magic, sizeof(magic));
+        ctrl->req_head = (tail + 16) % ring_size;
+    } else if (which == "truncated") {
+        /* claims a large record but only publishes 16 bytes */
+        uint8_t* record = region + ring_off + tail;
+        memset(record, 0, 16);
+        const uint32_t length = 0x400;
+        memcpy(record, &length, sizeof(length));
+        const uint32_t magic = KC_RECORD_MAGIC;
+        memcpy(record + 4, &magic, sizeof(magic));
+        ctrl->req_head = (tail + 16) % ring_size;
+    } else {
+        ctrl->req_head = 0x1000;
+    }
+    Sleep(400);
+    uint32_t output_len = 0;
+    const kc_status call_status = kc_call(session.client, KC_TOp_ECHO, "x", 1,
+                                          nullptr, 0, &output_len, 1000);
+    const uint32_t state_after = ctrl->state;
+    kc_test_state device_state{};
+    DWORD returned = 0;
+    const bool driver_alive =
+        device_ioctl(session.device, KC_TEST_IOCTL_STATE, nullptr, 0,
+                     &device_state, sizeof(device_state), &returned);
+    (void)device_ioctl(session.device, KC_TEST_IOCTL_DESTROY, nullptr, 0,
+                       nullptr, 0, nullptr);
+    const bool ok =
+        driver_alive && call_status != KC_OK &&
+        (state_after == KC_STATE_FAILED || state_after == KC_STATE_STOPPED ||
+         state_after == KC_STATE_DEAD);
+    print(
+        "{\"ok\":%s,\"case\":\"%s\",\"call_status\":\"%s\","
+        "\"state_after\":%u,\"driver_alive\":%s}\n",
+        ok ? "true" : "false", which.c_str(), kc_status_str(call_status),
+        state_after, driver_alive ? "true" : "false");
+    return ok ? 0 : 1;
+}
 /* --------------------------- trace scanning --------------------------- */
 
 struct NamedObjectScan {
@@ -887,6 +1098,11 @@ Options parse_options(int argc, char** argv) {
         } else if (argument == "--region") {
             options.region =
                 static_cast<uint32_t>(strtoul(next("--region"), nullptr, 0));
+        } else if (argument == "--case") {
+            options.case_name = next("--case");
+        } else if (argument == "--payload") {
+            options.payload =
+                static_cast<uint32_t>(strtoul(next("--payload"), nullptr, 0));
         } else if (argument == "--count") {
             options.count =
                 static_cast<uint32_t>(strtoul(next("--count"), nullptr, 0));
@@ -912,6 +1128,20 @@ Options parse_options(int argc, char** argv) {
 } /* namespace */
 
 int main(int argc, char** argv) {
+    /* HOST SAFETY: this tool only drives a driver that must already be loaded
+     * inside a lab VM. Refuse to touch driver IOCTLs on a physical host unless
+     * the operator explicitly opts in (e.g. a dedicated test machine). */
+    if (!RunningInVmwareGuest()) {
+        const char* allow = getenv("KCHANNEL_ALLOW_HOST");
+        if (allow == nullptr || strcmp(allow, "1") != 0) {
+            fprintf(
+                stderr,
+                "{\"ok\":false,\"error\":\"REFUSING: kchannel-ctl must run "
+                "inside a bvmenv VMware guest (set KCHANNEL_ALLOW_HOST=1 to "
+                "override on a disposable test machine)\"}\n");
+            return 3;
+        }
+    }
     const Options options = parse_options(argc, argv);
     if (options.command == "state") {
         return command_state(options);
@@ -940,6 +1170,18 @@ int main(int argc, char** argv) {
     if (options.command == "loader-child") {
         return command_loader_child(options);
     }
+    if (options.command == "worker-cpu") {
+        return command_worker_cpu(options);
+    }
+    if (options.command == "stop-latency") {
+        return command_stop_latency(options);
+    }
+    if (options.command == "soak") {
+        return command_soak(options);
+    }
+    if (options.command == "tamper") {
+        return command_tamper(options);
+    }
     if (options.command == "trace-scan") {
         return command_trace_scan(options);
     }
@@ -951,7 +1193,9 @@ int main(int argc, char** argv) {
     }
     fprintf(stderr,
             "usage: kchannel-ctl <state|attach-test|map-test|latency|idle-cpu|"
-            "wrong-key|second-attach|loader-kill|trace-scan|event-test|crash>"
+            "wrong-key|second-attach|loader-kill|trace-scan|event-test|worker-"
+            "cpu|tamper|"
+            "stop-latency|soak|crash>"
             " [options]\n");
     return 2;
 }

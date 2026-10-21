@@ -98,6 +98,16 @@ uint32_t kc_kernel_peer_pid(kc_kernel* kernel);
 /* attach_id of the current session (0 when none). */
 uint64_t kc_kernel_attach_id(kc_kernel* kernel);
 
+/*
+ * Diagnostics (additive in ABI 1.0, never used by the protocol):
+ *   - cumulative CPU cycles charged to the worker thread
+ * (KeQueryThreadCycleTime),
+ *   - the cycle frequency to convert them to seconds/nanoseconds.
+ * The e2e harness uses these to measure the idle-CPU claim instead of
+ * approximating it from system-wide counters.
+ */
+uint64_t kc_kernel_worker_busy_cycles(kc_kernel* kernel);
+uint64_t kc_kernel_tsc_hz(void);
 /* Set/replace the peer-gone callback after creation. */
 void kc_kernel_set_peer_gone(kc_kernel* kernel, void (*fn)(void*), void* ctx);
 

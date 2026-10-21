@@ -66,11 +66,11 @@ void MockKernel::loop() {
         }
         const int processed = reactor_.poll(16);
         if (processed == 0) {
-            {
-                std::lock_guard<std::mutex> guard(mutex_);
-                reactor_.tick();
-            }
-            std::this_thread::sleep_for(std::chrono::microseconds(200));
+            /* Reactor::tick() acquires the region lock internally; taking it
+             * here as well would self-deadlock (non-recursive mutex). */
+            reactor_.tick();
+            SwitchToThread(); /* sub-millisecond; sleep_for rounds up to 15.6 ms
+                               */
         }
     }
 }

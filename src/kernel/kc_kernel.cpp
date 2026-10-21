@@ -84,6 +84,8 @@ struct kc_kernel {
     volatile LONG destroy_pending;
     volatile LONG io_errors;
     volatile LONG peer_gone;
+    volatile LONG64 worker_busy_cycles;
+    uint64_t tsc_hz;
 
     kc_kernel_config config;
     uint32_t flags;
@@ -382,11 +384,20 @@ kc_status reject_bootstrap(const kc_bootstrap* boot, kc_status error) {
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     uint32_t idle = 0;
+    uint32_t busy_flush = 0;
+    uint64_t busy_accum = 0;
     for (;;) {
         if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
             break;
         }
+        const uint64_t busy_start = __rdtsc();
         const int processed = kernel->reactor.poll(16);
+        busy_accum += __rdtsc() - busy_start;
+        if ((++busy_flush & 63u) == 0) {
+            InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
+                                     static_cast<LONG64>(busy_accum));
+            busy_accum = 0;
+        }
         if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
             break;
         }
@@ -416,7 +427,10 @@ VOID WorkerThread(PVOID context) {
                 break;
             }
             _mm_pause();
-            if (kernel->reactor.poll(2) > 0) {
+            const uint64_t spin_start = __rdtsc();
+            const int spin_processed = kernel->reactor.poll(2);
+            busy_accum += __rdtsc() - spin_start;
+            if (spin_processed > 0) {
                 worked = true;
                 break;
             }
@@ -453,6 +467,8 @@ VOID WorkerThread(PVOID context) {
             ++idle;
         }
     }
+    InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
+                             static_cast<LONG64>(busy_accum));
     if (InterlockedCompareExchange(&kernel->destroy_pending, 1, 1) != 0) {
         kernel_cleanup(kernel);
     }
@@ -673,6 +689,12 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
                                      ? config->watchdog_ms
                                      : KC_DEFAULT_WATCHDOG_MS;
     reactor_config.handshake_ms = reactor_config.watchdog_ms;
+    /* A watchdog shorter than two heartbeat intervals would kill a healthy
+     * peer between two beats; clamp it. */
+    const uint32_t minimum_watchdog = 2u * KC_HEARTBEAT_INTERVAL_MS;
+    if (reactor_config.watchdog_ms < minimum_watchdog) {
+        reactor_config.watchdog_ms = minimum_watchdog;
+    }
     reactor_config.flags = (config != nullptr) ? config->flags : 0;
     reactor_config.handlers = kernel->handlers;
     reactor_config.handler_count = 0;
@@ -728,6 +750,7 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
         kernel->poll_idle_max_us = kernel->poll_idle_us;
     }
     kernel->handler_count = 0;
+    kernel->tsc_hz = kc_kernel_tsc_hz();
 
     *out = kernel;
     return KC_OK;
@@ -849,6 +872,40 @@ uint32_t kc_kernel_peer_pid(kc_kernel* kernel) {
         return 0;
     }
     return kernel->peer_pid;
+}
+
+uint64_t kc_kernel_worker_busy_cycles(kc_kernel* kernel) {
+    if (kernel == nullptr) {
+        return 0;
+    }
+    return static_cast<uint64_t>(
+        InterlockedCompareExchange64(&kernel->worker_busy_cycles, 0, 0));
+}
+
+uint64_t kc_kernel_tsc_hz(void) {
+    /* Calibrate the TSC against KeQueryPerformanceCounter over ~2 ms. */
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER start_qpc;
+    LARGE_INTEGER now_qpc;
+    frequency = KeQueryPerformanceCounter(&frequency);
+    if (frequency.QuadPart <= 0) {
+        return 0;
+    }
+    start_qpc = KeQueryPerformanceCounter(nullptr);
+    const uint64_t start_tsc = __rdtsc();
+    const LONGLONG target = frequency.QuadPart / 500; /* 2 ms */
+    do {
+        now_qpc = KeQueryPerformanceCounter(nullptr);
+    } while ((now_qpc.QuadPart - start_qpc.QuadPart) < target);
+    const uint64_t end_tsc = __rdtsc();
+    const LONGLONG ticks = now_qpc.QuadPart - start_qpc.QuadPart;
+    if (ticks <= 0) {
+        return 0;
+    }
+    return static_cast<uint64_t>(
+        (static_cast<unsigned long long>(end_tsc - start_tsc) *
+         static_cast<unsigned long long>(frequency.QuadPart)) /
+        static_cast<unsigned long long>(ticks));
 }
 
 uint64_t kc_kernel_attach_id(kc_kernel* kernel) {

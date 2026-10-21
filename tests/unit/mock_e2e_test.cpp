@@ -4,7 +4,7 @@
 
 #include <realtimeapiset.h>
 
-#include <atomic>
+#include <algorithm>
 #include <cstring>
 #include <thread>
 #include <vector>
@@ -20,6 +20,14 @@ namespace {
 constexpr uint16_t kOpEcho = 0x8001;
 constexpr uint16_t kOpEvent = 0x8100;
 
+uint64_t now_qpc_us() {
+    LARGE_INTEGER counter;
+    LARGE_INTEGER frequency;
+    QueryPerformanceCounter(&counter);
+    QueryPerformanceFrequency(&frequency);
+    return (static_cast<uint64_t>(counter.QuadPart) * 1000000ull) /
+           static_cast<uint64_t>(frequency.QuadPart);
+}
 uint64_t heartbeat_now_ns() {
     ULONGLONG ticks = 0;
     QueryUnbiasedInterruptTime(&ticks);
@@ -394,4 +402,98 @@ TEST(MockE2e, Aes128CtrSession) {
                       &output_len, 2000),
               KC_OK);
     EXPECT_EQ(std::memcmp(output, "aes", 3), 0);
+}
+
+TEST(MockE2e, MaxPayloadWithLargeRegion) {
+    Channel channel;
+    ASSERT_EQ(channel.attach(0x100000), KC_OK);
+    ASSERT_EQ(channel.mock.register_handler(kOpEcho, MockKernel::echo_handler,
+                                            nullptr),
+              KC_OK);
+    const uint32_t payload = KC_MAX_PAYLOAD - KC_CALL_PREFIX_SIZE;
+    std::vector<uint8_t> input(payload);
+    for (uint32_t i = 0; i < payload; ++i) {
+        input[i] = static_cast<uint8_t>(i * 3 + 7);
+    }
+    std::vector<uint8_t> output(payload, 0);
+    uint32_t output_len = 0;
+    ASSERT_EQ(kc_call(channel.client, kOpEcho, input.data(), payload,
+                      output.data(), payload, &output_len, 10000),
+              KC_OK);
+    EXPECT_EQ(output_len, payload);
+    EXPECT_EQ(input, output);
+}
+
+TEST(MockE2e, ConcurrentCallsAndEvents) {
+    Channel channel;
+    ASSERT_EQ(channel.attach(0x40000), KC_OK);
+    ASSERT_EQ(channel.mock.register_handler(kOpEcho, MockKernel::echo_handler,
+                                            nullptr),
+              KC_OK);
+    static std::atomic<uint32_t> call_failures{0};
+    static std::atomic<uint32_t> event_count{0};
+    call_failures = 0;
+    event_count = 0;
+    kc_set_event_handler(
+        channel.client,
+        [](void* ctx, uint16_t op, const void* data, uint32_t len) {
+            (void)ctx;
+            (void)op;
+            (void)data;
+            (void)len;
+            event_count++;
+        },
+        nullptr);
+
+    std::atomic<bool> stop_emitter{false};
+    std::atomic<uint32_t> emits_ok{0};
+    std::thread emitter([&]() {
+        uint32_t sequence = 0;
+        while (!stop_emitter.load()) {
+            for (uint32_t burst = 0; burst < 4; ++burst) {
+                if (channel.mock.emit(kOpEvent, &sequence, sizeof(sequence)) ==
+                    KC_OK) {
+                    emits_ok++;
+                }
+                ++sequence;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+
+    for (uint32_t i = 0; i < 2000; ++i) {
+        const kc_status status = kc_call(channel.client, kOpEcho, &i, sizeof(i),
+                                         nullptr, 0, nullptr, 5000);
+        if (status != KC_OK) {
+            call_failures++;
+        }
+    }
+    stop_emitter = true;
+    emitter.join();
+    EXPECT_EQ(call_failures.load(), 0u);
+
+    EXPECT_EQ(kc_ping(channel.client, 2000), KC_OK); /* drains queued events */
+    EXPECT_GE(event_count.load(), 1u);
+    EXPECT_EQ(kc_state(channel.client), KC_STATE_ACTIVE);
+}
+
+TEST(MockE2e, HeartbeatKeepsSessionAlive) {
+    Channel channel;
+    /* Watchdog above two heartbeat intervals must never declare a live peer
+     * dead, even with no traffic at all. */
+    ASSERT_EQ(channel.attach(KC_DEFAULT_REGION_SIZE, 0, 1500), KC_OK);
+    Sleep(2600);
+    EXPECT_EQ(kc_state(channel.client), KC_STATE_ACTIVE);
+    EXPECT_FALSE(channel.mock.peer_gone());
+    EXPECT_EQ(kc_ping(channel.client, 2000), KC_OK);
+}
+
+TEST(MockE2e, KernelHeartbeatAdvances) {
+    Channel channel;
+    ASSERT_EQ(channel.attach(), KC_OK);
+    const uint64_t before = channel.mock.ctrl()->kernel_heartbeat_ns;
+    Sleep(800);
+    const uint64_t after = channel.mock.ctrl()->kernel_heartbeat_ns;
+    EXPECT_GT(after, before);
+    EXPECT_EQ(kc_ping(channel.client, 2000), KC_OK);
 }

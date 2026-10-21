@@ -90,6 +90,14 @@ jobs:
         shell: pwsh
         run: pwsh scripts/check-format.ps1
 
+  host-safety:
+    name: host-safety gate (no kernel code on runners)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse host kernel execution
+        shell: pwsh
+        run: pwsh scripts/check-host-safety.ps1
   package:
     name: package source + binary artifacts
     runs-on: windows-latest

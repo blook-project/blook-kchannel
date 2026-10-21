@@ -360,6 +360,45 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
             }
             break;
         }
+        case KC_TEST_IOCTL_PERF_STATS: {
+            if (output_length < sizeof(kc_test_perf) || buffer == nullptr) {
+                status = STATUS_BUFFER_TOO_SMALL;
+                break;
+            }
+            kc_test_perf* performance = static_cast<kc_test_perf*>(buffer);
+            RtlZeroMemory(performance, sizeof(*performance));
+            performance->worker_cycles = kc_kernel_worker_busy_cycles(g_kernel);
+            performance->cycle_frequency = kc_kernel_tsc_hz();
+            information = sizeof(*performance);
+            break;
+        }
+        case KC_TEST_IOCTL_STOP_RESTART: {
+            if (output_length < sizeof(kc_test_stop) || buffer == nullptr) {
+                status = STATUS_BUFFER_TOO_SMALL;
+                break;
+            }
+            kc_test_stop* response = static_cast<kc_test_stop*>(buffer);
+            RtlZeroMemory(response, sizeof(*response));
+            if (g_kernel == nullptr) {
+                response->status = KC_ERR_STATE;
+                information = sizeof(*response);
+                break;
+            }
+            LARGE_INTEGER start;
+            LARGE_INTEGER end;
+            start = KeQueryPerformanceCounter(nullptr);
+            kc_kernel_stop(g_kernel);
+            end = KeQueryPerformanceCounter(nullptr);
+            LARGE_INTEGER frequency;
+            frequency = KeQueryPerformanceCounter(&frequency);
+            const uint64_t ticks =
+                static_cast<uint64_t>(end.QuadPart - start.QuadPart);
+            response->stop_ns = (ticks * 1000000000ull) /
+                                static_cast<uint64_t>(frequency.QuadPart);
+            response->status = kc_kernel_start(g_kernel);
+            information = sizeof(*response);
+            break;
+        }
         case KC_TEST_IOCTL_DRIVER_OP: {
             if (buffer == nullptr || input_length < sizeof(kc_test_driver_op)) {
                 status = STATUS_INVALID_PARAMETER;

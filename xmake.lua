@@ -78,6 +78,34 @@ if has_config("kchannel_tests") then
         add_syslinks("advapi32", "bcrypt")
         add_tests("unit")
         set_encodings("utf-8")
+    -- Compile-only ABI consumers: plain C11 and C++17 must both be able to
+    -- include the authoritative headers (QA cross-checks this).
+    target("kchannel-abi-c")
+        set_kind("binary")
+        set_languages("c11")
+        add_files("tests/abi-consumer/consumer.c")
+        add_includedirs("include")
+        add_defines("NOMINMAX", version_define)
+        set_encodings("utf-8")
+
+    target("kchannel-abi-cxx17")
+        set_kind("binary")
+        set_languages("cxx17")
+        add_files("tests/abi-consumer/consumer.cpp")
+        add_includedirs("include")
+        add_defines("NOMINMAX", version_define)
+        set_encodings("utf-8")
+
+    -- Header-only C++ wrapper + example client.
+    target("kchannel-example")
+        set_kind("binary")
+        set_languages("cxx20")
+        add_files("examples/client.cpp", "src/user/*.cpp", common_files)
+        add_includedirs("include", "src")
+        add_defines("NOMINMAX", "UNICODE", "_UNICODE", version_define)
+        add_cxxflags("/utf-8", "/W4", "/permissive-", {tools = "cl"})
+        add_syslinks("advapi32", "bcrypt")
+        set_encodings("utf-8")
 end
 
 -- ---------------------------------------------------------------------------

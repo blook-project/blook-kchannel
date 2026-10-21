@@ -4,6 +4,16 @@ The VM suite proves the parts host tests cannot: real MDL mapping by a real
 driver, test-signed loading, manual mapping, trace absence, unload residue and
 the user-mode driver stack.
 
+
+## 0. Host safety (non-negotiable)
+
+Kernel code only runs inside a bvmenv guest fork. `guest-run.ps1` and
+`crash-run.ps1` refuse to start unless VMware Tools is present in the guest
+("REFUSING to run: kernel e2e must execute inside a bvmenv VMware guest"), the
+orchestrator refuses to run inside a guest and requires an explicit `-Vm`, and
+`scripts/check-host-safety.ps1` gates CI against any accidental host-side
+driver load. Never run `sc create/start`, a manual mapper, a DSE patch or a
+physical-memory helper on the physical host.
 ## 1. Prerequisites
 
 - `bvmenv.exe` from `blook-project/blook-vmware-environment`, with the base

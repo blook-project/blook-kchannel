@@ -138,6 +138,27 @@ kc_status st = kc_call(cli, 0x8001, NULL, 0, out, sizeof(out), &out_len, 2000);
 kc_detach(cli);
 ```
 
+
+## Host safety
+
+Kernel code (test drivers, manual mapping, deliberate faults) is only ever
+executed inside a bvmenv VMware guest fork. The repository enforces this:
+
+- `tests/e2e/guest-run.ps1` and `tests/e2e/crash-run.ps1` refuse to run unless
+  VMware Tools is present in the guest registry ("REFUSING to run: kernel e2e
+  must execute inside a bvmenv VMware guest, not on the host").
+- `tests/e2e/run-e2e.ps1` only builds/signs on the host and drives `bvmenv`;
+  it never loads a driver and refuses to run inside a guest.
+- `kchannel-ctl.exe` refuses driver IOCTLs on a non-VMware host unless
+  `KCHANNEL_ALLOW_HOST=1` is set (disposable test machines only).
+- `scripts/check-host-safety.ps1` is a CI gate: it fails if any script other
+  than the two guarded guest scripts contains `sc create/start`, `New-Service`,
+  `NtLoadDriver`, `bcdedit` or `vmrun`, if a CI workflow tries to load a
+  driver, if a guest script lost its guard, or if a compiled `.sys/.inf/.cat`
+  is committed.
+
+Host unit tests (`xmake run kchannel-unit-tests`), format checks and builds
+never load kernel code.
 ## Security notes
 
 - The session key only ever travels through the bootstrap descriptor, never

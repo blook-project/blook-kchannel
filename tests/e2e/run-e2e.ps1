@@ -30,6 +30,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# HOST SAFETY: the orchestrator only builds/signs and drives bvmenv; it never
+# loads a driver itself. It must run on the physical host, not inside a guest.
+# ---------------------------------------------------------------------------
+if (Test-Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware Tools') {
+    throw 'REFUSING to run: the e2e orchestrator must run on the host, not inside a VMware guest'
+}
+if (-not $Vm) {
+    throw 'REFUSING to run: pass -Vm <name> (a bvmenv VM fork created from the base snapshot)'
+}
+Write-Host "host safety: no driver is loaded on this host; all kernel code runs in VM '$Vm'"
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $version = (Get-Content (Join-Path $repo 'version.txt') -Raw).Trim()
 if (-not $Out) {
