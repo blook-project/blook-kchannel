@@ -335,6 +335,10 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
                 output_length < sizeof(kc_mapload_result)) {
                 status = STATUS_INVALID_PARAMETER;
             } else {
+                /* METHOD_BUFFERED shares one buffer for input+output: snapshot
+                 * the request before the result overwrites it. */
+                const uint64_t request_image_size = request->image_size;
+                kc_bootstrap boot_copy = request->boot;
                 kc_mapload_result* result =
                     static_cast<kc_mapload_result*>(buffer);
                 RtlZeroMemory(result, sizeof(*result));
@@ -343,8 +347,9 @@ NTSTATUS HandleIoctl(PDEVICE_OBJECT device, PIRP irp) {
                 NTSTATUS entry_status = STATUS_UNSUCCESSFUL;
                 const NTSTATUS map_status = MapAndCallEntry(
                     reinterpret_cast<const uint8_t*>(buffer) + sizeof(*request),
-                    static_cast<uint32_t>(request->image_size), &request->boot,
+                    static_cast<uint32_t>(request_image_size), &boot_copy,
                     &image_base, &image_size, &entry_status);
+                RtlSecureZeroMemory(&boot_copy, sizeof(boot_copy));
                 if (!NT_SUCCESS(map_status)) {
                     result->stage = g_map_stage;
                     result->status =
