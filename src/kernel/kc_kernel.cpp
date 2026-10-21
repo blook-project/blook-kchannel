@@ -45,47 +45,6 @@ extern "C" NTSYSAPI NTSTATUS NTAPI MmCopyVirtualMemory(
 extern "C" NTSYSAPI NTSTATUS NTAPI PsGetProcessExitStatus(PEPROCESS Process);
 
 namespace {
-#if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
-/* Worker breadcrumbs: append a line to C:\Windows\Temp\kchannel-wbc.txt.
- * Test-only (KCHANNEL_TESTING); used to locate a hang without a debugger. */
-void KcWorkerBreadcrumb(const char* message) {
-    static LONG guard = 0;
-    if (InterlockedCompareExchange(&guard, 1, 0) != 0) {
-        return;
-    }
-    UNICODE_STRING path;
-    RtlInitUnicodeString(&path, L"\\??\\C:\\Windows\\Temp\\kchannel-wbc.txt");
-    OBJECT_ATTRIBUTES attributes;
-    InitializeObjectAttributes(&attributes, &path,
-                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-                               nullptr, nullptr);
-    HANDLE file = nullptr;
-    IO_STATUS_BLOCK status_block{};
-    NTSTATUS status = ZwCreateFile(
-        &file, FILE_APPEND_DATA | SYNCHRONIZE, &attributes, &status_block,
-        nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
-        FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
-    if (NT_SUCCESS(status)) {
-        char line[128];
-        ULONG length = 0;
-        while (message[length] != 0 && length < sizeof(line) - 3) {
-            line[length] = message[length];
-            ++length;
-        }
-        line[length++] = 13;
-        line[length++] = 10;
-        status = ZwWriteFile(file, nullptr, nullptr, nullptr, &status_block,
-                             line, length, nullptr, nullptr);
-        if (NT_SUCCESS(status)) {
-            ZwFlushBuffersFile(file, &status_block);
-        }
-        ZwClose(file);
-    }
-    InterlockedExchange(&guard, 0);
-}
-#else
-#define KcWorkerBreadcrumb(...) ((void)0)
-#endif
 
 /* Only one live kernel session exists per loaded driver image. */
 kc_kernel* volatile g_live_kernel = nullptr;
@@ -329,12 +288,7 @@ void free_buffers(kc_kernel* kernel) {
     }
 }
 
-#if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
-void KcWorkerBreadcrumb(const char* message);
-#endif
-
 void kernel_cleanup(kc_kernel* kernel) {
-    KcWorkerBreadcrumb("cleanup enter");
     if (kernel == nullptr) {
         return;
     }
@@ -352,14 +306,11 @@ void kernel_cleanup(kc_kernel* kernel) {
         ObDereferenceObject(kernel->thread);
         kernel->thread = nullptr;
     }
-    KcWorkerBreadcrumb("cleanup unmap begin");
     unmap_region(kernel);
-    KcWorkerBreadcrumb("cleanup unmap done");
     if (kernel->peer_process != nullptr) {
         ObDereferenceObject(kernel->peer_process);
         kernel->peer_process = nullptr;
     }
-    KcWorkerBreadcrumb("cleanup free buffers");
     free_buffers(kernel);
     kc::mem_zero(&kernel->boot, sizeof(kernel->boot));
     ExFreePoolWithTag(kernel, KC_POOL_TAG);
@@ -436,28 +387,66 @@ kc_status reject_bootstrap(const kc_bootstrap* boot, kc_status error) {
 
 /* ------------------------------ worker ------------------------------- */
 
+#if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
+/* Worker breadcrumbs: append a line to C:\Windows\Temp\kchannel-wbc.txt.
+ * Test-only (KCHANNEL_TESTING); used to locate a hang without a debugger. */
+void KcWorkerBreadcrumb(const char* message) {
+    static LONG guard = 0;
+    if (InterlockedCompareExchange(&guard, 1, 0) != 0) {
+        return;
+    }
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\??\\C:\\Windows\\Temp\\kchannel-wbc.txt");
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, &path,
+                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+                               nullptr, nullptr);
+    HANDLE file = nullptr;
+    IO_STATUS_BLOCK status_block{};
+    NTSTATUS status = ZwCreateFile(
+        &file, FILE_APPEND_DATA | SYNCHRONIZE, &attributes, &status_block,
+        nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
+    if (NT_SUCCESS(status)) {
+        char line[128];
+        ULONG length = 0;
+        while (message[length] != 0 && length < sizeof(line) - 3) {
+            line[length] = message[length];
+            ++length;
+        }
+        line[length++] = 13;
+        line[length++] = 10;
+        status = ZwWriteFile(file, nullptr, nullptr, nullptr, &status_block,
+                             line, length, nullptr, nullptr);
+        if (NT_SUCCESS(status)) {
+            ZwFlushBuffersFile(file, &status_block);
+        }
+        ZwClose(file);
+    }
+    InterlockedExchange(&guard, 0);
+}
+#else
+#define KcWorkerBreadcrumb(...) ((void)0)
+#endif
+
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
     kc_state_t last_state = KC_STATE_EMPTY;
-    /* If the loader process is gone there is nothing left to serve: stop
-     * before touching its mapping again (KC-001). */
-    bool peer_exited = false;
     uint32_t idle = 0;
     uint32_t busy_flush = 0;
     uint64_t busy_accum = 0;
     for (;;) {
-        if (!peer_exited && kernel->peer_process != nullptr &&
-            PsGetProcessExitStatus(kernel->peer_process) != STATUS_PENDING) {
-            KcWorkerBreadcrumb("peer exited");
-            peer_exited = true;
-            break;
-        }
         if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
             break;
         }
         const uint64_t busy_start = __rdtsc();
         KcWorkerBreadcrumb("poll begin");
+        if (kernel->peer_process != nullptr &&
+            PsGetProcessExitStatus(kernel->peer_process) != STATUS_PENDING) {
+            KcWorkerBreadcrumb("peer exited");
+            break;
+        }
         const int processed = kernel->reactor.poll(16);
         /* A failed session can never recover: stop the worker instead of
          * polling a region whose owner may already be gone. This avoids the
@@ -673,13 +662,10 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
             KeUnstackDetachProcess(&apc);
         }
         if (status == KC_OK && peer != nullptr) {
-            kernel->peer_process = peer; /* hold the reference: the worker
-                                          * uses it to detect loader exit and
-                                          * stops polling before the loader
-                                          * tears the mapping down (KC-001) */
-            peer = nullptr;
-        }
-        if (peer != nullptr) {
+            kernel->peer_process = peer; /* held until cleanup: the worker uses
+                                          * it to detect loader exit (KC-001) */
+        } else if (peer != nullptr) {
+            ObDereferenceObject(peer);
         }
         if (status == KC_OK) {
             if (kernel->mapped_va == nullptr) {
@@ -926,7 +912,6 @@ void kc_kernel_stop(kc_kernel* kernel) {
         KC_TRACE("stop waiting for worker");
         KeWaitForSingleObject(kernel->thread, Executive, KernelMode, FALSE,
                               nullptr);
-        KcWorkerBreadcrumb("stop joined");
         KC_TRACE("stop worker joined");
         ObDereferenceObject(kernel->thread);
         kernel->thread = nullptr;
