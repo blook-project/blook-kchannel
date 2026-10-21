@@ -39,7 +39,16 @@ class MockKernel {
     void stop();
 
     /* Stops polling without stopping the thread (simulates a stuck kernel). */
-    void set_paused(bool paused) { paused_ = paused; }
+    void set_paused(bool paused) {
+        paused_ = paused;
+        if (paused) {
+            for (uint32_t i = 0; i < 500 && !pause_acked_.load(); ++i) {
+                Sleep(1);
+            }
+        } else {
+            pause_acked_ = false;
+        }
+    }
 
     /* Simulates a dead kernel: stops the thread and disables polling. */
     void kill();
@@ -68,6 +77,7 @@ class MockKernel {
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::atomic<bool> paused_{false};
+    std::atomic<bool> pause_acked_{false};
     std::atomic<bool> peer_gone_{false};
     std::mutex mutex_;
 

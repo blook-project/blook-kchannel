@@ -61,9 +61,11 @@ MockKernel::~MockKernel() {
 void MockKernel::loop() {
     while (running_.load()) {
         if (paused_.load()) {
+            pause_acked_.store(true);
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
+        pause_acked_.store(false);
         const int processed = reactor_.poll(16);
         if (processed == 0) {
             /* Reactor::tick() acquires the region lock internally; taking it
