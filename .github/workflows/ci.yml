@@ -134,7 +134,11 @@ jobs:
     # hosted runner with an SPC-signed image (no test signing). This is real
     # kernel execution, not a mock: it proves handshake/echo on a stock OS.
     name: kernel-smoke (real load, SPC-signed)
-    runs-on: windows-latest
+    # Server 2019 still accepts legacy cross-signed Authenticode; the Server
+    # 2025 image (windows-latest) rejects it with error 577, so this job pins
+    # the older image on purpose. Windows-2019 is retired by GitHub in 2025
+    # unless the repo keeps it; fall back to windows-2022 if needed.
+    runs-on: windows-2019
     steps:
       - uses: actions/checkout@v4
 
@@ -183,7 +187,7 @@ jobs:
         shell: pwsh
         run: |
           pwsh -NoProfile -File scripts/sign-driver.ps1 -ImportTsaRoot `
-            -Driver 'build\windows\x64\release\kchannel_test.sys,build\windows\x64\release\kcmapload.sys'
+            -Driver 'build\windows\x64\release\kchannel_test.sys,build\windows\x64\release\kcmapload.sys' -Sha1
           if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
 
       - name: Load driver, run client, unload (real kernel execution)
