@@ -163,8 +163,8 @@ jobs:
         shell: pwsh
         run: |
           xmake f -y -m release --wdk="$env:WDK_DIR"
-          xmake -y kchannel_test kcmapload kchannel-ctl
-          if ($LASTEXITCODE -ne 0) { throw "guest tools build failed: $LASTEXITCODE" }
+          xmake -y
+          if ($LASTEXITCODE -ne 0) { throw "build failed: $LASTEXITCODE" }
 
       - name: Import SPC signing certificate
         shell: pwsh
