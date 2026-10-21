@@ -17,7 +17,8 @@ here always means a real regression.
 param(
     [string]$Region = '0x40000',
     [int]$LatencyCalls = 2000,
-    [int]$SoakCalls = 100000
+    [int]$SoakCalls = 100000,
+    [switch]$SkipMapped
 )
 
 
@@ -185,6 +186,7 @@ $noDevice = $traceAfterUnload.Output -match '"device_present":false'
 $noServiceKey = $traceAfterUnload.Output -match '"service_key_present":false'
 Record 'unload_no_device_or_service' ($noDevice -and $noServiceKey) $traceAfterUnload.Output
 
+if (-not $SkipMapped) {
 # ------------------------ phase B: mapped path -----------------------
 sc.exe create kcmapload type= kernel `
     binPath= (Join-Path $driverDir 'kcmapload.sys') start= demand | Out-Null
@@ -237,6 +239,7 @@ sc.exe stop kcmapload | Out-Null
 Start-Sleep -Milliseconds 300
 sc.exe delete kcmapload | Out-Null
 
+}
 $summary = [ordered]@{
     ok          = ($script:failures -eq 0)
     failures    = $script:failures
