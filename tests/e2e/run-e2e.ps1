@@ -60,13 +60,20 @@ function Find-Bvmenv {
 
 function Find-SignTool {
     if ($SignTool) { return (Resolve-Path $SignTool).Path }
-    $kits = 'C:\Program Files (x86)\Windows Kits\10\bin'
-    if (-not (Test-Path $kits)) { $kits = 'Y:\Program Files (x86)\Windows Kits\10\bin' }
-    $candidate = Get-ChildItem $kits -Directory |
-        Sort-Object Name -Descending |
-        ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
-        Where-Object { Test-Path $_ } |
-        Select-Object -First 1
+    $roots = @(
+        'C:\Program Files (x86)\Windows Kits\10\bin',
+        'Y:\Program Files (x86)\Windows Kits\10\bin',
+        'D:\Program Files (x86)\Windows Kits\10\bin'
+    ) | Where-Object { Test-Path $_ }
+    $candidate = $null
+    foreach ($root in $roots) {
+        if ($candidate) { break }
+        $candidate = Get-ChildItem $root -Directory |
+            Sort-Object Name -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+    }
     if (-not $candidate) { throw 'signtool.exe not found: pass -SignTool' }
     return $candidate
 }
