@@ -76,6 +76,10 @@ struct ReactorConfig {
     void* delay_ctx;
     void (*on_peer_gone)(void* ctx);
     void* ctx;
+    /* Optional: checked before touching the mapping; return false to stop the
+     * session without any further access to the loader region (KC-001). */
+    bool (*peer_alive)(void* ctx);
+    void* peer_ctx;
 };
 
 class Reactor {

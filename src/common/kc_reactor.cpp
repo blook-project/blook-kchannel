@@ -310,6 +310,9 @@ void Reactor::mark_peer_gone(uint32_t new_state) {
 }
 
 kc_status Reactor::read_ctrl_snapshot() {
+    if (cfg_.peer_alive != nullptr && !cfg_.peer_alive(cfg_.peer_ctx)) {
+        return KC_ERR_PEER_GONE;
+    }
     kc_status st =
         cfg_.ops->read(cfg_.ops_ctx, 0, cfg_.ctrl_scratch, KC_CTRL_SIZE);
     if (st != KC_OK) {
@@ -403,6 +406,11 @@ void Reactor::tick() {
 }
 
 int Reactor::poll(int max_records) {
+    if (cfg_.peer_alive != nullptr && !cfg_.peer_alive(cfg_.peer_ctx)) {
+        debug_log("reactor: peer gone before poll");
+        fail_session(KC_ERR_PEER_GONE);
+        return 0;
+    }
     if (state_ == KC_STATE_FAILED || state_ == KC_STATE_DEAD ||
         state_ == KC_STATE_STOPPED || max_records <= 0) {
         return 0;

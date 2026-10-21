@@ -429,6 +429,14 @@ void KcWorkerBreadcrumb(const char* message) {
 #define KcWorkerBreadcrumb(...) ((void)0)
 #endif
 
+bool PeerAliveCallback(void* context) {
+    auto* kernel = static_cast<kc_kernel*>(context);
+    if (kernel->peer_process == nullptr) {
+        return true;
+    }
+    return PsGetProcessExitStatus(kernel->peer_process) == STATUS_PENDING;
+}
+
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
@@ -800,6 +808,8 @@ kc_status kc_kernel_create(const kc_bootstrap* boot,
     reactor_config.delay_ms = kernel_delay_ms;
     reactor_config.delay_ctx = kernel;
     reactor_config.on_peer_gone = kernel_peer_gone;
+    reactor_config.peer_alive = &PeerAliveCallback;
+    reactor_config.peer_ctx = kernel;
     reactor_config.ctx = kernel;
 
     status = kernel->reactor.init(reactor_config);
