@@ -446,7 +446,8 @@ VOID WorkerThread(PVOID context) {
         /* A failed session can never recover: stop the worker instead of
          * polling a region whose owner may already be gone. This avoids the
          * READY-with-dead-peer idle wait path entirely (KC-001). */
-        const kc_state_t polled_state = kernel->reactor.state();
+        const kc_state_t polled_state =
+            static_cast<kc_state_t>(kernel->reactor.state());
         if (polled_state == KC_STATE_FAILED || polled_state == KC_STATE_DEAD) {
             KcWorkerBreadcrumb("worker stop: session failed");
             break;
