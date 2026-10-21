@@ -33,10 +33,15 @@ foreach ($stale in @('kchannel_test', 'kcmapload')) {
         if ($LASTEXITCODE -ne 0) { break }
     }
 }
-Start-Sleep -Milliseconds 500Start-Sleep -Milliseconds 300$cert = Join-Path $bundle 'blook-kchannel-test.cer'
-if (Test-Path $cert) {
-    certutil.exe -addstore -f Root $cert | Out-Null
-    certutil.exe -addstore -f TrustedPublisher $cert | Out-Null
+Start-Sleep -Milliseconds 300
+foreach ($pair in @(
+    @('tsa-root.cer', 'Root'),
+    @('verisign-cscs-2010.cer', 'CA'),
+    @('verisign-g5-mcvr.cer', 'CA'),
+    @('blook-kchannel-xinda.cer', 'TrustedPublisher')
+)) {
+    $cer = Join-Path $bundle $pair[0]
+    if (Test-Path $cer) { certutil.exe -addstore -f $pair[1] $cer | Out-Null }
 }
 Copy-Item (Join-Path $bundle 'kchannel_test.sys') $driverDir -Force
 sc.exe create kchannel_test type= kernel `

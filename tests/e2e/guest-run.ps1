@@ -71,10 +71,16 @@ function Save-Json {
 }
 
 # ---------------------------- preparation ----------------------------
-$cert = Join-Path $bundle 'blook-kchannel-test.cer'
-if (Test-Path $cert) {
-    certutil.exe -addstore -f Root $cert | Out-Null
-    certutil.exe -addstore -f TrustedPublisher $cert | Out-Null
+# SPC SHA-1 kernel policy: trust the TSA root and the legacy VeriSign chain,
+# then the XINDA leaf as a publisher.
+foreach ($pair in @(
+    @('tsa-root.cer', 'Root'),
+    @('verisign-cscs-2010.cer', 'CA'),
+    @('verisign-g5-mcvr.cer', 'CA'),
+    @('blook-kchannel-xinda.cer', 'TrustedPublisher')
+)) {
+    $cer = Join-Path $bundle $pair[0]
+    if (Test-Path $cer) { certutil.exe -addstore -f $pair[1] $cer | Out-Null }
 }
 Copy-Item (Join-Path $bundle 'kchannel_test.sys') $driverDir -Force
 Copy-Item (Join-Path $bundle 'kcmapload.sys') $driverDir -Force

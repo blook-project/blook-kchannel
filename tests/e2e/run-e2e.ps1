@@ -140,11 +140,14 @@ New-Item -ItemType Directory -Force -Path $signed | Out-Null
 foreach ($file in @($driver, $mapper)) {
     Copy-Item $file (Join-Path $signed (Split-Path $file -Leaf)) -Force
 }
-& pwsh -NoProfile -File $signerScript -ImportTsaRoot -Driver ((Join-Path $signed 'kchannel_test.sys') + ',' + (Join-Path $signed 'kcmapload.sys'))
+& pwsh -NoProfile -File $signerScript -ImportTsaRoot -Sha1 -Driver ((Join-Path $signed 'kchannel_test.sys') + ',' + (Join-Path $signed 'kcmapload.sys'))
 if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
 Write-Host 'SPC-signed kchannel_test.sys and kcmapload.sys (legacy Authenticode)'
 $cerPath = Join-Path $Out 'blook-kchannel-xinda.cer'
 Export-Certificate -Cert $certificate -FilePath $cerPath -Type CERT | Out-Null
+Copy-Item (Join-Path $repo 'signer\tsa\tsa-root.cer') $Out -Force
+Copy-Item (Join-Path $repo 'signer\certs\verisign-cscs-2010.cer') $Out -Force
+Copy-Item (Join-Path $repo 'signer\certs\verisign-g5-mcvr.cer') $Out -Force
 
 # ------------------------- VM availability ---------------------------
 $list = Invoke-Bvmenv @('list', '--json')
@@ -169,6 +172,9 @@ Copy-Item (Join-Path $signed 'kchannel_test.sys') $bundle -Force
 Copy-Item (Join-Path $signed 'kcmapload.sys') $bundle -Force
 Copy-Item $ctl $bundle -Force
 Copy-Item $cerPath $bundle -Force
+Copy-Item (Join-Path $Out 'tsa-root.cer') $bundle -Force
+Copy-Item (Join-Path $Out 'verisign-cscs-2010.cer') $bundle -Force
+Copy-Item (Join-Path $Out 'verisign-g5-mcvr.cer') $bundle -Force
 Copy-Item (Join-Path $PSScriptRoot 'guest-run.ps1') $bundle -Force
 @"
 @echo off
@@ -229,6 +235,9 @@ if (-not $SkipCrashRun) {
     Copy-Item (Join-Path $signed 'kchannel_test.sys') $crashBundle -Force
     Copy-Item $ctl $crashBundle -Force
     Copy-Item $cerPath $crashBundle -Force
+    Copy-Item (Join-Path $Out 'tsa-root.cer') $crashBundle -Force
+    Copy-Item (Join-Path $Out 'verisign-cscs-2010.cer') $crashBundle -Force
+    Copy-Item (Join-Path $Out 'verisign-g5-mcvr.cer') $crashBundle -Force
     Copy-Item (Join-Path $PSScriptRoot 'crash-run.ps1') $crashBundle -Force
     @"
 @echo off
