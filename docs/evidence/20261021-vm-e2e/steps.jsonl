@@ -1,9 +1,0 @@
-{"name":"setup","ok":true,"exit_code":0,"timed_out":false,"output_file":"00-setup.txt"}
-{"name":"wrong-key","ok":false,"exit_code":null,"timed_out":false,"output_file":"01-wrong-key.txt"}
-{"name":"attach-test","ok":false,"exit_code":null,"timed_out":false,"output_file":"02-attach-test.txt"}
-{"name":"second-attach","ok":false,"exit_code":null,"timed_out":false,"output_file":"03-second-attach.txt"}
-{"name":"events","ok":false,"exit_code":null,"timed_out":false,"output_file":"04-events.txt"}
-{"name":"tamper-ring","ok":false,"exit_code":null,"timed_out":false,"output_file":"05-tamper-ring.txt"}
-{"name":"tamper-geometry","ok":false,"exit_code":null,"timed_out":false,"output_file":"06-tamper-geometry.txt"}
-{"name":"tamper-attach","ok":false,"exit_code":null,"timed_out":false,"output_file":"07-tamper-attach.txt"}
-{"name":"tamper-record","ok":false,"exit_code":null,"timed_out":false,"output_file":"08-tamper-record.txt"}
