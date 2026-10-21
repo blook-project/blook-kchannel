@@ -255,7 +255,7 @@ if ($mainStdout) {
         try { $metricObjects.Add(($candidate | ConvertFrom-Json)) } catch { }
     }
 }
-ConvertTo-Json -InputObject @($metricObjects) -Depth 6 |
+$metricObjects.ToArray() | ConvertTo-Json -Depth 6 |
     Set-Content (Join-Path $Out 'metrics.json')
 Write-Host "metrics: $($metricObjects.Count) objects -> metrics.json"
 } catch {

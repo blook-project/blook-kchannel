@@ -1,0 +1,7 @@
+Copy-Item : 文件“C:\Windows\System32\drivers\kchannel_test.sys”正由另一进程使用，因此该进程无法访问此文件。
+所在位置 C:\blook\e2e\20261021T051245Z\bundle\crash-run.ps1:28 字符: 1
++ Copy-Item (Join-Path $bundle 'kchannel_test.sys') $driverDir -Force
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], IOException
+    + FullyQualifiedErrorId : System.IO.IOException,Microsoft.PowerShell.Commands.CopyItemCommand
+ 
