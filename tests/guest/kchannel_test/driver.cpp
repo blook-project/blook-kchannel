@@ -208,8 +208,44 @@ NTSTATUS RegisterHandlers(kc_kernel* kernel) {
     return status == KC_OK ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL;
 }
 
+/* Breadcrumb writer: append a line to C:\Windows\Temp\kchannel-bc.txt and
+ * flush. Test-only (this driver is never shipped); used to locate a hang
+ * without a kernel debugger when the guest becomes unresponsive. */
+namespace {
+void KcBreadcrumb(const char* message) {
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\??\\C:\\Windows\\Temp\\kchannel-bc.txt");
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, &path,
+                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+                               nullptr, nullptr);
+    HANDLE file = nullptr;
+    IO_STATUS_BLOCK status_block{};
+    NTSTATUS status = ZwCreateFile(
+        &file, FILE_APPEND_DATA | SYNCHRONIZE, &attributes, &status_block,
+        nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
+    if (!NT_SUCCESS(status)) {
+        return;
+    }
+    char line[160];
+    ULONG length = 0;
+    while (message[length] != 0 && length < sizeof(line) - 3) {
+        line[length] = message[length];
+        ++length;
+    }
+    line[length++] = '\r';
+    line[length++] = '\n';
+    status = ZwWriteFile(file, nullptr, nullptr, nullptr, &status_block, line,
+                         length, nullptr, nullptr);
+    if (NT_SUCCESS(status)) {
+        ZwFlushBuffersFile(file, &status_block);
+    }
+    ZwClose(file);
+}
+}  // namespace
 void OnPeerGone(void* context) {
-    DbgPrint("kchannel-test: OnPeerGone entered");
+    KcBreadcrumb("OnPeerGone enter");
     UNREFERENCED_PARAMETER(context);
     KcLog("peer_gone: callback entered on the worker thread");
     kc_kernel* kernel = g_kernel;
@@ -221,7 +257,7 @@ void OnPeerGone(void* context) {
 }
 
 NTSTATUS StartKernel(const kc_bootstrap* boot) {
-    DbgPrint("kchannel-test: StartKernel enter boot=%p", boot);
+    KcBreadcrumb("StartKernel enter");
     if (g_kernel != nullptr) {
         return STATUS_ALREADY_REGISTERED;
     }
@@ -238,7 +274,7 @@ NTSTATUS StartKernel(const kc_bootstrap* boot) {
 
     kc_kernel* kernel = nullptr;
     kc_status status = kc_kernel_create(boot, &config, &kernel);
-    DbgPrint("kchannel-test: kc_kernel_create -> %d kernel=%p", status, kernel);
+    KcBreadcrumb("StartKernel create done");
     if (status != KC_OK) {
         KcLogStatus("start: kc_kernel_create failed", status);
         return STATUS_UNSUCCESSFUL;
@@ -247,9 +283,9 @@ NTSTATUS StartKernel(const kc_bootstrap* boot) {
         kc_kernel_destroy(kernel);
         return STATUS_UNSUCCESSFUL;
     }
-    DbgPrint("kchannel-test: handlers registered, starting worker");
+    KcBreadcrumb("StartKernel handlers done");
     status = kc_kernel_start(kernel);
-    DbgPrint("kchannel-test: kc_kernel_start -> %d", status);
+    KcBreadcrumb("StartKernel started");
     if (status != KC_OK) {
         kc_kernel_destroy(kernel);
         return STATUS_UNSUCCESSFUL;
