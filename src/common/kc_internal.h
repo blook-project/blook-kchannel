@@ -15,7 +15,7 @@
 #endif
 
 #if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
-extern "C" NTSYSAPI ULONG NTAPI DbgPrint(PCSTR format, ...);
+extern "C" unsigned long DbgPrint(const char* format, ...);
 #define KC_DEBUG_TRACE(...) DbgPrint("kchannel: " __VA_ARGS__)
 #else
 #define KC_DEBUG_TRACE(...) ((void)0)
