@@ -444,7 +444,19 @@ int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     }
     print("{\"ok\":true,\"finish\":\"%s\",\"destroy_ok\":%s}\n",
           kc_status_str(finish_status), destroy_ok ? "true" : "false");
+    CtlBreadcrumb("iso: print done");
+    if (session.client != nullptr) {
+        kc_detach(session.client);
+        session.client = nullptr;
+    }
+    CtlBreadcrumb("iso: detach done");
+    if (session.device != nullptr) {
+        CloseHandle(session.device);
+        session.device = nullptr;
+    }
+    CtlBreadcrumb("iso: device closed");
     return 0;
+
     CtlBreadcrumb("iso: function end");
 }
 /* Debug helpers that isolate handshake/destroy failure paths. */
