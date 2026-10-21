@@ -192,6 +192,8 @@ jobs:
 
       - name: Load driver, run client, unload (real kernel execution)
         shell: pwsh
+        env:
+          BLOOK_CI_KERNEL_SMOKE: '1'
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'kernel-smoke'

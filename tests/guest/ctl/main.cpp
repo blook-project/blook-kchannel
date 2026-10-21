@@ -71,6 +71,21 @@ typedef struct _KC_SYSTEM_MODULES {
 } KC_SYSTEM_MODULES;
 
 namespace {
+bool CiKernelSmokeAllowed() {
+    /* Hosted CI runners: the workflow sets BLOOK_CI_KERNEL_SMOKE=1 *and* CI is
+
+     * * present. There is no way to enable this on an interactive dev host,
+     * and
+     * the bvmenv guest guard stays mandatory everywhere else. */
+    if (GetEnvironmentVariableW(L"CI", nullptr, 0) == 0) {
+        return false;
+    }
+    wchar_t value[8] = {};
+    if (GetEnvironmentVariableW(L"BLOOK_CI_KERNEL_SMOKE", value, 8) == 0) {
+        return false;
+    }
+    return value[0] == L'1';
+}
 bool RunningInVmwareGuest() {
     HKEY key = nullptr;
     const LONG status = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
@@ -1244,7 +1259,7 @@ int main(int argc, char** argv) {
     /* HOST SAFETY: this tool only drives a driver that must already be loaded
      * inside a lab VM. Refuse to touch driver IOCTLs on a physical host unless
      * the operator explicitly opts in (e.g. a dedicated test machine). */
-    if (!RunningInVmwareGuest()) {
+    if (!RunningInVmwareGuest() && !CiKernelSmokeAllowed()) {
         fprintf(stderr,
                 "{\"ok\":false,\"error\":\"REFUSING: kchannel-ctl must run "
                 "inside a bvmenv VMware guest\"}\n");
