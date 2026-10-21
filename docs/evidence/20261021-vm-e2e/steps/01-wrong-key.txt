@@ -1,0 +1,2 @@
+bvmenv: error: guest script failed: Error: The VMware Tools are not running in the virtual machine: C:\blook-vms\vms\vm-kchannel\vm-kchannel.vmx
+

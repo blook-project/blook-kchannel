@@ -1,0 +1,2 @@
+bvmenv: error: guest script failed: Error: Cannot open VM: C:\blook-vms\vms\vm-kchannel\vm-kchannel.vmx, The virtual machine cannot be found
+

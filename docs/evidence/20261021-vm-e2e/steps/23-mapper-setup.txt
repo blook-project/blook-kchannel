@@ -1,0 +1,10 @@
+exit_code    : 2
+[SC] StartService ʧ�� 2:
+
+
+
+ϵͳ�Ҳ���ָ�����ļ���
+
+
+
+

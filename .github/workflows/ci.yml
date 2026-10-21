@@ -224,7 +224,7 @@ jobs:
               $state | Tee-Object (Join-Path $out 'scm-query.txt')
               if ($state -notmatch 'STATE\s*:\s*4\s+RUNNING') { throw 'driver did not reach STATE 4 RUNNING' }
 
-              & $ctl attach-test --device '\.\kchannel_test' --region 0x40000 2>&1 |
+              & $ctl attach-test --device '\\.\kchannel_test' --region 0x40000 2>&1 |
                   Tee-Object (Join-Path $out 'attach-test.json')
               if ($LASTEXITCODE -ne 0) { throw "attach-test failed: $LASTEXITCODE" }
               $attach = Get-Content (Join-Path $out 'attach-test.json') -Raw | ConvertFrom-Json
@@ -232,7 +232,7 @@ jobs:
 
               sc.exe create kcmapload type= kernel binPath= "$mapSys" start= demand | Out-Null
               if ((Start-ScWithTimeout @('start', 'kcmapload')) -ne 0) { throw 'sc start kcmapload failed' }
-              & $ctl map-test --mapper '\.\kcmapload' --image $sys --region 0x40000 2>&1 |
+              & $ctl map-test --mapper '\\.\kcmapload' --image $sys --region 0x40000 2>&1 |
                   Tee-Object (Join-Path $out 'map-test.json')
               if ($LASTEXITCODE -ne 0) { throw "map-test failed: $LASTEXITCODE" }
               $mapped = Get-Content (Join-Path $out 'map-test.json') -Raw | ConvertFrom-Json

@@ -1,0 +1,2 @@
+bvmenv: error: guest script failed: Error: The virtual machine is not powered on: C:\blook-vms\vms\vm-kchannel\vm-kchannel.vmx
+
