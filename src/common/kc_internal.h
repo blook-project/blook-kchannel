@@ -14,6 +14,13 @@
 #include <intrin.h> /* _ReadWriteBarrier, __rdtsc, _mm_pause */
 #endif
 
+#if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
+extern "C" NTSYSAPI ULONG NTAPI DbgPrint(PCSTR format, ...);
+#define KC_DEBUG_TRACE(...) DbgPrint("kchannel: " __VA_ARGS__)
+#else
+#define KC_DEBUG_TRACE(...) ((void)0)
+#endif
+
 namespace kc {
 
 inline void mem_copy(void* dst, const void* src, uint32_t len) {
