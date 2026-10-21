@@ -414,8 +414,8 @@ void KcWorkerBreadcrumb(const char* message) {
             line[length] = message[length];
             ++length;
         }
-        line[length++] = '\r';
-        line[length++] = '\n';
+        line[length++] = 13;
+        line[length++] = 10;
         status = ZwWriteFile(file, nullptr, nullptr, nullptr, &status_block,
                              line, length, nullptr, nullptr);
         if (NT_SUCCESS(status)) {
@@ -428,6 +428,7 @@ void KcWorkerBreadcrumb(const char* message) {
 #else
 #define KcWorkerBreadcrumb(...) ((void)0)
 #endif
+
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
@@ -441,7 +442,7 @@ VOID WorkerThread(PVOID context) {
         }
         const uint64_t busy_start = __rdtsc();
         KcWorkerBreadcrumb("poll begin");
-        `n const int processed = kernel->reactor.poll(16);
+        const int processed = kernel->reactor.poll(16);
         busy_accum += __rdtsc() - busy_start;
         if ((++busy_flush & 63u) == 0) {
             InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
@@ -451,6 +452,7 @@ VOID WorkerThread(PVOID context) {
         if (InterlockedCompareExchange(&kernel->stop_requested, 1, 1) != 0) {
             break;
         }
+        KcWorkerBreadcrumb("poll done");
         if (processed > 0) {
             idle = 0;
             continue;
@@ -511,8 +513,10 @@ VOID WorkerThread(PVOID context) {
         }
         LARGE_INTEGER interval;
         interval.QuadPart = -static_cast<LONGLONG>(delay_us) * 10ll;
+        KcWorkerBreadcrumb("wait begin");
         KeWaitForSingleObject(&kernel->stop_event, Executive, KernelMode, FALSE,
                               &interval);
+        KcWorkerBreadcrumb("wait done");
         if (idle < 16) {
             ++idle;
         }
@@ -520,7 +524,7 @@ VOID WorkerThread(PVOID context) {
     InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
                              static_cast<LONG64>(busy_accum));
     KcWorkerBreadcrumb("worker exit");
-    `n KC_TRACE("worker exit thread=%p", PsGetCurrentThread());
+    KC_TRACE("worker exit thread=%p", PsGetCurrentThread());
     if (InterlockedCompareExchange(&kernel->destroy_pending, 1, 1) != 0) {
         KC_TRACE("worker: destroy_pending, cleaning up");
         kernel_cleanup(kernel);
