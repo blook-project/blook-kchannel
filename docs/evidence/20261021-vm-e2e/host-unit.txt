@@ -19,7 +19,7 @@
 
 [----------] 5 tests from Crypto
 [ RUN      ] Crypto.Sha256KnownVectors
-[       OK ] Crypto.Sha256KnownVectors (8 ms)
+[       OK ] Crypto.Sha256KnownVectors (7 ms)
 [ RUN      ] Crypto.HmacSha256Rfc4231
 [       OK ] Crypto.HmacSha256Rfc4231 (0 ms)
 [ RUN      ] Crypto.ChaCha20Rfc8439
@@ -28,7 +28,7 @@
 [       OK ] Crypto.Aes128CtrSp80038a (0 ms)
 [ RUN      ] Crypto.ConstantTimeCompare
 [       OK ] Crypto.ConstantTimeCompare (0 ms)
-[----------] 5 tests from Crypto (8 ms total)
+[----------] 5 tests from Crypto (7 ms total)
 
 [----------] 7 tests from Framing
 [ RUN      ] Framing.RoundTripChaCha20
@@ -60,44 +60,44 @@
 
 [----------] 19 tests from MockE2e
 [ RUN      ] MockE2e.AttachHandshakeAndEcho
-[       OK ] MockE2e.AttachHandshakeAndEcho (213 ms)
+[       OK ] MockE2e.AttachHandshakeAndEcho (207 ms)
 [ RUN      ] MockE2e.EmptyPayloadAndUnknownOpcode
-[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (227 ms)
+[       OK ] MockE2e.EmptyPayloadAndUnknownOpcode (203 ms)
 [ RUN      ] MockE2e.PingAndState
-[       OK ] MockE2e.PingAndState (201 ms)
+[       OK ] MockE2e.PingAndState (202 ms)
 [ RUN      ] MockE2e.LargePayload
-[       OK ] MockE2e.LargePayload (218 ms)
+[       OK ] MockE2e.LargePayload (217 ms)
 [ RUN      ] MockE2e.WrongKeyRejected
 [       OK ] MockE2e.WrongKeyRejected (0 ms)
 [ RUN      ] MockE2e.TimeoutAndRecovery
-[       OK ] MockE2e.TimeoutAndRecovery (387 ms)
+[       OK ] MockE2e.TimeoutAndRecovery (403 ms)
 [ RUN      ] MockE2e.EventDelivery
-[       OK ] MockE2e.EventDelivery (199 ms)
+[       OK ] MockE2e.EventDelivery (201 ms)
 [ RUN      ] MockE2e.DetachReportsPeerGone
-[       OK ] MockE2e.DetachReportsPeerGone (15 ms)
+[       OK ] MockE2e.DetachReportsPeerGone (31 ms)
 [ RUN      ] MockE2e.WatchdogDetectsDeadPeer
-[       OK ] MockE2e.WatchdogDetectsDeadPeer (264 ms)
+[       OK ] MockE2e.WatchdogDetectsDeadPeer (250 ms)
 [ RUN      ] MockE2e.TamperedControlPageFailsSession
 [       OK ] MockE2e.TamperedControlPageFailsSession (15 ms)
 [ RUN      ] MockE2e.MalformedRecordsDoNotCrash
-[       OK ] MockE2e.MalformedRecordsDoNotCrash (60 ms)
+[       OK ] MockE2e.MalformedRecordsDoNotCrash (96 ms)
 [ RUN      ] MockE2e.CorruptRingPointersDoNotCrash
-[       OK ] MockE2e.CorruptRingPointersDoNotCrash (233 ms)
+[       OK ] MockE2e.CorruptRingPointersDoNotCrash (220 ms)
 [ RUN      ] MockE2e.ReplayedRecordRejected
-[       OK ] MockE2e.ReplayedRecordRejected (234 ms)
+[       OK ] MockE2e.ReplayedRecordRejected (218 ms)
 [ RUN      ] MockE2e.InvalidAttachOptions
 [       OK ] MockE2e.InvalidAttachOptions (0 ms)
 [ RUN      ] MockE2e.Aes128CtrSession
-[       OK ] MockE2e.Aes128CtrSession (202 ms)
+[       OK ] MockE2e.Aes128CtrSession (203 ms)
 [ RUN      ] MockE2e.MaxPayloadWithLargeRegion
-[       OK ] MockE2e.MaxPayloadWithLargeRegion (216 ms)
+[       OK ] MockE2e.MaxPayloadWithLargeRegion (217 ms)
 [ RUN      ] MockE2e.ConcurrentCallsAndEvents
-[       OK ] MockE2e.ConcurrentCallsAndEvents (217 ms)
+[       OK ] MockE2e.ConcurrentCallsAndEvents (235 ms)
 [ RUN      ] MockE2e.HeartbeatKeepsSessionAlive
 [       OK ] MockE2e.HeartbeatKeepsSessionAlive (2818 ms)
 [ RUN      ] MockE2e.KernelHeartbeatAdvances
 [       OK ] MockE2e.KernelHeartbeatAdvances (1006 ms)
-[----------] 19 tests from MockE2e (6735 ms total)
+[----------] 19 tests from MockE2e (6750 ms total)
 
 [----------] 7 tests from Ring
 [ RUN      ] Ring.PushPopSingle
@@ -118,13 +118,13 @@
 
 [----------] 3 tests from Wrapper
 [ RUN      ] Wrapper.AttachHandshakeCallDetach
-[       OK ] Wrapper.AttachHandshakeCallDetach (216 ms)
+[       OK ] Wrapper.AttachHandshakeCallDetach (202 ms)
 [ RUN      ] Wrapper.StructCallAndMoveSemantics
-[       OK ] Wrapper.StructCallAndMoveSemantics (197 ms)
+[       OK ] Wrapper.StructCallAndMoveSemantics (215 ms)
 [ RUN      ] Wrapper.AttachFailureIsReported
 [       OK ] Wrapper.AttachFailureIsReported (0 ms)
-[----------] 3 tests from Wrapper (415 ms total)
+[----------] 3 tests from Wrapper (417 ms total)
 
 [----------] Global test environment tear-down
-[==========] 52 tests from 7 test suites ran. (7183 ms total)
+[==========] 52 tests from 7 test suites ran. (7201 ms total)
 [  PASSED  ] 52 tests.

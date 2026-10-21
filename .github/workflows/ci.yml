@@ -202,37 +202,68 @@ jobs:
           $mapSys = Join-Path $PWD 'build/windows/x64/release/kcmapload.sys'
           $ctl = Join-Path $PWD 'build/windows/x64/release/kchannel-ctl.exe'
 
-          sc.exe create kchannel_test type= kernel binPath= "$sys" start= demand | Tee-Object (Join-Path $out 'scm-create.txt')
-          if ($LASTEXITCODE -ne 0) { throw 'sc create kchannel_test failed' }
-          sc.exe start kchannel_test | Tee-Object (Join-Path $out 'scm-start.txt')
-          $state = (sc.exe query kchannel_test | Out-String) | Tee-Object (Join-Path $out 'scm-query.txt')
-          if ($state -notmatch 'STATE\s*:\s*4\s+RUNNING') { throw 'driver did not reach STATE 4 RUNNING' }
-
-          & $ctl attach-test --device '\.\kchannel_test' --region 0x40000 2>&1 |
-            Tee-Object (Join-Path $out 'attach-test.json')
-          if ($LASTEXITCODE -ne 0) { throw "attach-test failed: $LASTEXITCODE" }
-          $attach = Get-Content (Join-Path $out 'attach-test.json') -Raw | ConvertFrom-Json
-          if (-not $attach.ok) { throw 'attach-test reported ok=false' }
-
-          sc.exe create kcmapload type= kernel binPath= "$mapSys" start= demand | Out-Null
-          sc.exe start kcmapload | Out-Null
-          & $ctl map-test --mapper '\.\kcmapload' --image $sys --region 0x40000 2>&1 |
-            Tee-Object (Join-Path $out 'map-test.json')
-          if ($LASTEXITCODE -ne 0) { throw "map-test failed: $LASTEXITCODE" }
-          $mapped = Get-Content (Join-Path $out 'map-test.json') -Raw | ConvertFrom-Json
-          if (-not $mapped.ok) { throw 'map-test reported ok=false' }
-
-          sc.exe stop kcmapload | Out-Null
-          sc.exe delete kcmapload | Out-Null
-          sc.exe stop kchannel_test | Out-Null
-          sc.exe delete kchannel_test | Out-Null
-          Start-Sleep -Seconds 2
-          foreach ($name in @('kchannel_test', 'kcmapload')) {
-            sc.exe query $name *> $null
-            if ($LASTEXITCODE -ne 1060) { throw "$name still registered after cleanup" }
+          function Start-ScWithTimeout {
+              param([string[]]$Arguments, [int]$TimeoutMs = 30000)
+              $process = Start-Process -FilePath 'sc.exe' -ArgumentList $Arguments -PassThru -NoNewWindow
+              if (-not $process.WaitForExit($TimeoutMs)) {
+                  $process.Kill()
+                  throw ('sc.exe ' + ($Arguments -join ' ') + ' timed out')
+              }
+              return $process.ExitCode
           }
-          Write-Host 'kernel-smoke: PASS'
 
+          try {
+              sc.exe create kchannel_test type= kernel binPath= "$sys" start= demand |
+                  Tee-Object (Join-Path $out 'scm-create.txt')
+              if ($LASTEXITCODE -ne 0) { throw 'sc create kchannel_test failed' }
+
+              if ((Start-ScWithTimeout @('start', 'kchannel_test')) -ne 0) {
+                  throw 'sc start kchannel_test failed'
+              }
+              $state = (sc.exe query kchannel_test | Out-String)
+              $state | Tee-Object (Join-Path $out 'scm-query.txt')
+              if ($state -notmatch 'STATE\s*:\s*4\s+RUNNING') { throw 'driver did not reach STATE 4 RUNNING' }
+
+              & $ctl attach-test --device '\.\kchannel_test' --region 0x40000 2>&1 |
+                  Tee-Object (Join-Path $out 'attach-test.json')
+              if ($LASTEXITCODE -ne 0) { throw "attach-test failed: $LASTEXITCODE" }
+              $attach = Get-Content (Join-Path $out 'attach-test.json') -Raw | ConvertFrom-Json
+              if (-not $attach.ok) { throw 'attach-test reported ok=false' }
+
+              sc.exe create kcmapload type= kernel binPath= "$mapSys" start= demand | Out-Null
+              if ((Start-ScWithTimeout @('start', 'kcmapload')) -ne 0) { throw 'sc start kcmapload failed' }
+              & $ctl map-test --mapper '\.\kcmapload' --image $sys --region 0x40000 2>&1 |
+                  Tee-Object (Join-Path $out 'map-test.json')
+              if ($LASTEXITCODE -ne 0) { throw "map-test failed: $LASTEXITCODE" }
+              $mapped = Get-Content (Join-Path $out 'map-test.json') -Raw | ConvertFrom-Json
+              if (-not $mapped.ok) { throw 'map-test reported ok=false' }
+
+              Write-Host 'kernel-smoke: PASS'
+          }
+          finally {
+              foreach ($name in @('kcmapload', 'kchannel_test')) {
+                  sc.exe stop $name 2>&1 | Out-Null
+                  sc.exe delete $name 2>&1 | Out-Null
+              }
+              Start-Sleep -Seconds 2
+              $cleanup = sc.exe query kchannel_test 2>&1 | Out-String
+              $cleanup | Set-Content (Join-Path $out 'cleanup-query.txt')
+              if ($cleanup -notmatch 'FAILED 1060') {
+                  Write-Host "warning: kchannel_test still registered after cleanup`n$cleanup"
+              }
+              try {
+                  Get-WinEvent -FilterHashtable @{
+                      LogName   = 'System'
+                      StartTime = (Get-Date).AddMinutes(-10)
+                  } -ErrorAction SilentlyContinue |
+                      Where-Object { $_.Message -match 'kchannel|CodeIntegrity|Driver' } |
+                      Select-Object -First 40 TimeCreated, Id, ProviderName, Message |
+                      Format-List | Out-String | Set-Content (Join-Path $out 'system-events.txt')
+              }
+              catch {
+                  Write-Host ('event capture failed: ' + $_.Exception.Message)
+              }
+          }
       - name: Upload kernel-smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
