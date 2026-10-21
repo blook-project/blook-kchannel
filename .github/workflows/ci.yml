@@ -135,6 +135,7 @@ jobs:
     # load kernel code; this job is the CI-runners-only exception.
     name: kernel-e2e (full matrix on hosted runner)
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
