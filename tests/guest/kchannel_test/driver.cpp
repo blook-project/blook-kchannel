@@ -209,6 +209,7 @@ NTSTATUS RegisterHandlers(kc_kernel* kernel) {
 }
 
 void OnPeerGone(void* context) {
+    DbgPrint("kchannel-test: OnPeerGone entered");
     UNREFERENCED_PARAMETER(context);
     KcLog("peer_gone: callback entered on the worker thread");
     kc_kernel* kernel = g_kernel;
@@ -220,6 +221,7 @@ void OnPeerGone(void* context) {
 }
 
 NTSTATUS StartKernel(const kc_bootstrap* boot) {
+    DbgPrint("kchannel-test: StartKernel enter boot=%p", boot);
     if (g_kernel != nullptr) {
         return STATUS_ALREADY_REGISTERED;
     }
@@ -236,6 +238,7 @@ NTSTATUS StartKernel(const kc_bootstrap* boot) {
 
     kc_kernel* kernel = nullptr;
     kc_status status = kc_kernel_create(boot, &config, &kernel);
+    DbgPrint("kchannel-test: kc_kernel_create -> %d kernel=%p", status, kernel);
     if (status != KC_OK) {
         KcLogStatus("start: kc_kernel_create failed", status);
         return STATUS_UNSUCCESSFUL;
@@ -244,7 +247,9 @@ NTSTATUS StartKernel(const kc_bootstrap* boot) {
         kc_kernel_destroy(kernel);
         return STATUS_UNSUCCESSFUL;
     }
+    DbgPrint("kchannel-test: handlers registered, starting worker");
     status = kc_kernel_start(kernel);
+    DbgPrint("kchannel-test: kc_kernel_start -> %d", status);
     if (status != KC_OK) {
         kc_kernel_destroy(kernel);
         return STATUS_UNSUCCESSFUL;

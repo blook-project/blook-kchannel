@@ -25,6 +25,12 @@
 
 #define KC_POOL_TAG 'KCHK'
 
+#if defined(KCHANNEL_TESTING)
+#define KC_TRACE(...) DbgPrint("kchannel: " __VA_ARGS__)
+#else
+#define KC_TRACE(...) ((void)0)
+#endif
+
 /*
  * Exported by ntoskrnl but not declared by the public WDK headers. Used for
  * COPY mode: the primitive attaches internally and, unlike a manual
@@ -383,6 +389,7 @@ kc_status reject_bootstrap(const kc_bootstrap* boot, kc_status error) {
 
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
+    KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
     uint32_t idle = 0;
     uint32_t busy_flush = 0;
     uint64_t busy_accum = 0;
@@ -469,7 +476,9 @@ VOID WorkerThread(PVOID context) {
     }
     InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
                              static_cast<LONG64>(busy_accum));
+    KC_TRACE("worker exit thread=%p", PsGetCurrentThread());
     if (InterlockedCompareExchange(&kernel->destroy_pending, 1, 1) != 0) {
+        KC_TRACE("worker: destroy_pending, cleaning up");
         kernel_cleanup(kernel);
     }
 }
@@ -826,11 +835,15 @@ void kc_kernel_stop(kc_kernel* kernel) {
     if (kernel == nullptr) {
         return;
     }
+    KC_TRACE("stop enter thread=%p worker=%p", PsGetCurrentThread(),
+             kernel->thread);
     InterlockedExchange(&kernel->stop_requested, 1);
     KeSetEvent(&kernel->stop_event, IO_NO_INCREMENT, FALSE);
     if (kernel->thread != nullptr && PsGetCurrentThread() != kernel->thread) {
+        KC_TRACE("stop waiting for worker");
         KeWaitForSingleObject(kernel->thread, Executive, KernelMode, FALSE,
                               nullptr);
+        KC_TRACE("stop worker joined");
         ObDereferenceObject(kernel->thread);
         kernel->thread = nullptr;
     }
