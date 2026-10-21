@@ -1,0 +1,48 @@
+exit_code    : 0
+
+
+Windows ����������
+
+-------------------
+
+��ʶ��                  {current}
+
+device                  partition=C:
+
+path                    \Windows\system32\winload.exe
+
+description             Windows 11
+
+locale                  zh-CN
+
+inherit                 {bootloadersettings}
+
+recoverysequence        {7fbad687-cd02-11f1-8622-005056c00008}
+
+displaymessageoverride  Recovery
+
+recoveryenabled         No
+
+nointegritychecks       No
+
+testsigning             No
+
+allowedinmemorysettings 0x15000075
+
+osdevice                partition=C:
+
+systemroot              \Windows
+
+resumeobject            {7fbad685-cd02-11f1-8622-005056c00008}
+
+nx                      OptIn
+
+bootmenupolicy          Standard
+
+bootstatuspolicy        IgnoreAllFailures
+
+hypervisorlaunchtype    Off
+
+debug                   Yes
+
+

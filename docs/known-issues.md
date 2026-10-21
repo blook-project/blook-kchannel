@@ -75,3 +75,33 @@ logon UI while guest operations already work through the SYSTEM fallback. Use
 `tests/e2e/exec-run.ps1` or `tests/e2e/step-run.ps1` in that case. Keep to the
 team VM budget (max 3-4 guests) and stop forks after each run; the host was
 power-cycled twice on 2026-10-21 while many guests were running.
+
+## SPC SHA-1 signing: verified accepted on Windows 11 26100 with integrity checks ON
+
+Resolved question: does the legacy SPC SHA-1 signature load on 26100, or was the
+lab base's `nointegritychecks Yes` / CI's `testsigning Yes` doing the work?
+
+Evidence (`docs/evidence/20261021-vm-spc/`, fresh `vm-kchannel` fork):
+
+- `bcdedit /enum {current}` before: `testsigning No`, `nointegritychecks Yes`,
+  `debug Yes` (the `nointegritychecks` opt-in is what made an earlier load
+  ambiguous).
+- `scripts/sign-driver.ps1 -Sha1 -ImportTsaRoot` → `SHA-1, PKCS#7 7168 bytes,
+  countersignature @ 2013-01-01T00:00:00Z`, XINDA legacy leaf.
+- Trust in the guest: `signer/tsa/tsa-root.cer` → Root,
+  `signer/certs/verisign-cscs-2010.cer` + `verisign-g5-mcvr.cer` → CA, XINDA leaf
+  → TrustedPublisher (`certutil-stores.txt`).
+- `signtool verify /kp /v` → **Successfully verified**, 0 errors.
+- Load → `STATE = 4 RUNNING`, `WIN32_EXIT_CODE = 0`.
+- Then `bcdedit /set testsigning off` + `bcdedit /set nointegritychecks off`,
+  reboot, confirm `nointegritychecks No` / `testsigning No`
+  (`bcdedit-current-testsigning-off.txt`), re-run `/kp` → **still Successfully
+  verified** (`signtool-kp-testsigning-off.txt`) and load → **STATE 4 RUNNING**
+  (`load-after-testsigning-off-load.txt`).
+
+Conclusion: SPC SHA-1 with the TSA root + VeriSign CA chain trusted is accepted
+by 26100 with driver integrity checks enabled. SHA-256 remains rejected
+(0x80096010, no cross-signed SHA-256 path), and a missing TSA root gives
+0x80096005 / error 577 — those are the two failure modes to avoid. CI runner
+`testsigning Yes` therefore does not explain the CI load; `/kp` + this
+testsigning-off VM run are the backing evidence.

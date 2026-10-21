@@ -1,0 +1,32 @@
+exit_code    : 0
+TrustedPublisher "�����εķ�����"
+
+���֤��:
+
+
+
+��ȷƥ��:
+
+Ԫ�� 0:
+
+���к�: 23b3320a66ea5ebe1bcc6b5ad50f5df3
+
+�䷢��: CN=VeriSign Class 3 Code Signing 2010 CA, OU=Terms of use at https://www.verisign.com/rpa (c)10, OU=VeriSign Trust Network, O=VeriSign, Inc., C=US
+
+ NotBefore: 2012/7/17 8:00
+
+ NotAfter: 2013/7/18 7:59
+
+ʹ����: CN=BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD, OU=Digital ID Class 3 - Microsoft Software Validation v2, O=BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD, L= Beijing, S=Beijing, C=CN
+
+�Ǹ�֤��
+
+֤���ϣ(sha1): 87d60f58bca95bcbfb4bf08b709a697ea70b5d24
+
+
+
+֤�� "BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD" �Ѿ��ڴ洢�С�
+
+CertUtil: -addstore ����ɹ���ɡ�
+
+

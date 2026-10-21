@@ -1,0 +1,6 @@
+pwsh scripts/sign-driver.ps1 -ImportTsaRoot -Sha1 -Driver Y:\Users\mbcloud\AppData\Local\Temp\kc-verify-driver.sys
+  spcsign: signed: Y:\Users\mbcloud\AppData\Local\Temp\kc-verify-driver.sys
+  spcsign:   signer: CN="BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD", OU=Digital ID Class 3 - Microsoft Software Validation v2, O="BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD", L=" Beijing", S=Beijing, C=CN
+  spcsign:   digest: SHA-1, PKCS#7 7168 bytes, countersignature @ 2013-01-01T00:00:00Z
+signed with SPC: Y:\Users\mbcloud\AppData\Local\Temp\kc-verify-driver.sys (signer CN="BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD", OU=Digital ID Class 3 - Microsoft Software Validation v2, O="BEIJING XINDA HUANYU NETWORK SECURITY TECHNOLOGY CO.,LTD", L=" Beijing", S=Beijing, C=CN)
+

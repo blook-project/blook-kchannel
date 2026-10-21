@@ -1,0 +1,16 @@
+exit_code    : 0
+
+
+ȫ������
+
+---------------
+
+��ʶ��                  {globalsettings}
+
+inherit                 {dbgsettings}
+
+                        {emssettings}
+
+                        {badmemory}
+
+
