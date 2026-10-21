@@ -390,28 +390,31 @@ std::vector<CheckResult> run_functional_tests(kc_client* client,
  *
  * the handshake and/or destroy the driver session. */
 int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
+    CtlBreadcrumb("iso: enter");
     Session session;
     if (!open_test_device(&session, options.device)) {
         return 1;
     }
     CtlBreadcrumb("iso: client attached");
-    `n if (!attach_client(&session, options)) {
+    if (!attach_client(&session, options)) {
         return 1;
     }
     kc_bootstrap corrupted = session.boot;
     corrupted.session_key[0] ^= 0xFF;
     corrupted.session_key[31] ^= 0x0F;
     CtlBreadcrumb("iso: ioctl attach begin");
-    `n if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
-                         sizeof(corrupted), nullptr, 0, nullptr)) {
+    if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
+                      sizeof(corrupted), nullptr, 0, nullptr)) {
         print(
             "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
             "failed\",\"win_error\":%lu}\n",
             static_cast<unsigned long>(GetLastError()));
         return 1;
     }
+    CtlBreadcrumb("iso: ioctl attach returned");
     const kc_status finish_status =
         finish ? kc_attach_finish(session.client, 3000) : KC_OK;
+    CtlBreadcrumb("iso: finish done");
     bool destroy_ok = true;
     if (destroy) {
         kc_test_result result{};
@@ -423,7 +426,9 @@ int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     print("{\"ok\":true,\"finish\":\"%s\",\"destroy_ok\":%s}\n",
           kc_status_str(finish_status), destroy_ok ? "true" : "false");
     return 0;
+    CtlBreadcrumb("iso: function end");
 }
+/* Debug helpers that isolate handshake/destroy failure paths. */
 /* User-side breadcrumbs for hang localization (test tool only). */
 void CtlBreadcrumb(const char* message) {
     HANDLE file = CreateFileA("C:\\blook\\ctl-bc.txt", FILE_APPEND_DATA,
@@ -433,21 +438,27 @@ void CtlBreadcrumb(const char* message) {
         return;
     }
     DWORD written = 0;
-    WriteFile(file, message, static_cast<DWORD>(strlen(message)), &written,
-              nullptr);
+    ULONG length = 0;
+    while (message[length] != 0 && length < 200) {
+        ++length;
+    }
+    WriteFile(file, message, length, &written, nullptr);
     WriteFile(file, "\r\n", 2, &written, nullptr);
     FlushFileBuffers(file);
     CloseHandle(file);
 }
-/* Debug helpers that isolate handshake/destroy failure paths. */
+
 int command_iso_attach(const Options& options, bool finish, bool destroy) {
+    CtlBreadcrumb("iso: enter");
     Session session;
     if (!attach_scm(&session, options, finish)) {
         print("{\"ok\":false,\"error\":\"attach failed\"}\n");
         return 1;
     }
+    CtlBreadcrumb("iso: ioctl attach returned");
     const kc_status finish_status =
         finish ? KC_OK : kc_attach_finish(session.client, 3000);
+    CtlBreadcrumb("iso: finish done");
     bool destroy_ok = true;
     if (destroy) {
         kc_test_result result{};
@@ -461,6 +472,7 @@ int command_iso_attach(const Options& options, bool finish, bool destroy) {
         (destroy_ok && (!finish || finish_status == KC_OK)) ? "true" : "false",
         kc_status_str(finish_status), destroy_ok ? "true" : "false");
     return 0;
+    CtlBreadcrumb("iso: function end");
 }
 int command_state(const Options& options) {
     HANDLE device = open_device(options.device);
@@ -625,9 +637,8 @@ int command_wrong_key(const Options& options) {
     kc_bootstrap corrupted = session.boot;
     corrupted.session_key[0] ^= 0xFF;
     corrupted.session_key[31] ^= 0x0F;
-    CtlBreadcrumb("iso: ioctl attach begin");
-    `n if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
-                         sizeof(corrupted), nullptr, 0, nullptr)) {
+    if (!device_ioctl(session.device, KC_TEST_IOCTL_ATTACH, &corrupted,
+                      sizeof(corrupted), nullptr, 0, nullptr)) {
         print(
             "{\"ok\":false,\"error\":\"IOCTL_ATTACH "
             "failed\",\"win_error\":%lu}\n",
