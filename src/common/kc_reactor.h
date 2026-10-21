@@ -121,6 +121,8 @@ class Reactor {
     kc_status write_ctrl64(uint64_t off, uint64_t value);
     void fail_session(kc_status error);
     void mark_peer_gone(uint32_t new_state);
+    /* Marks the session dead without any I/O to the loader mapping (KC-001). */
+    void mark_dead_silent();
     void set_state(uint32_t new_state);
 
     void handle_record(uint32_t record_len);

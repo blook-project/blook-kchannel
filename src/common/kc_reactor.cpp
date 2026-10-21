@@ -282,6 +282,12 @@ void Reactor::fail_session(kc_status error) {
     }
 }
 
+void Reactor::mark_dead_silent() {
+    state_ = KC_STATE_DEAD;
+    error_ = static_cast<uint32_t>(KC_ERR_PEER_GONE);
+    peer_gone_reported_ = true;
+}
+
 void Reactor::mark_peer_gone(uint32_t new_state) {
     if (cfg_.lock != nullptr) {
         cfg_.lock(cfg_.lock_ctx);
@@ -408,7 +414,7 @@ void Reactor::tick() {
 int Reactor::poll(int max_records) {
     if (cfg_.peer_alive != nullptr && !cfg_.peer_alive(cfg_.peer_ctx)) {
         debug_log("reactor: peer gone before poll");
-        fail_session(KC_ERR_PEER_GONE);
+        mark_dead_silent();
         return 0;
     }
     if (state_ == KC_STATE_FAILED || state_ == KC_STATE_DEAD ||
@@ -430,7 +436,11 @@ int Reactor::poll(int max_records) {
             if (cfg_.unlock != nullptr) {
                 cfg_.unlock(cfg_.lock_ctx);
             }
-            fail_session(st);
+            if (st == KC_ERR_PEER_GONE) {
+                mark_dead_silent();
+            } else {
+                fail_session(st);
+            }
             break;
         }
         uint32_t record_len = 0;

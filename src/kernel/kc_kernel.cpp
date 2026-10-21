@@ -95,6 +95,7 @@ struct kc_kernel {
     volatile LONG destroy_pending;
     volatile LONG io_errors;
     volatile LONG peer_gone;
+    volatile LONG peer_dead;
     volatile LONG64 worker_busy_cycles;
     uint64_t tsc_hz;
 
@@ -494,6 +495,10 @@ VOID WorkerThread(PVOID context) {
         }
         const uint64_t busy_start = __rdtsc();
         KcWorkerBreadcrumb("poll begin");
+        if (InterlockedCompareExchange(&kernel->peer_dead, 0, 0) != 0) {
+            KcWorkerBreadcrumb("peer dead flag");
+            break;
+        }
         if (kernel->peer_process != nullptr &&
             PsGetProcessExitStatus(kernel->peer_process) != STATUS_PENDING) {
             KcWorkerBreadcrumb("peer exited");
@@ -592,6 +597,10 @@ VOID WorkerThread(PVOID context) {
         KeWaitForSingleObject(&kernel->stop_event, Executive, KernelMode, FALSE,
                               &interval);
         KcWorkerBreadcrumb("wait done");
+        if (InterlockedCompareExchange(&kernel->peer_dead, 0, 0) != 0) {
+            KcWorkerBreadcrumb("peer dead after wait");
+            break;
+        }
 #if defined(KCHANNEL_TESTING)
         InterlockedExchange(&kernel->worker_stage, 5);
 #endif

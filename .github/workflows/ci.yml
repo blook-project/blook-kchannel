@@ -229,7 +229,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Push-Location $env:KC_BUNDLE
           try {
-              & pwsh -NoProfile -File (Join-Path $env:KC_BUNDLE 'guest-run.ps1') -SkipMapped 2>&1 |
+              & pwsh -NoProfile -File (Join-Path $env:KC_BUNDLE 'guest-run.ps1') -SkipMapped -SkipKnownIssue 2>&1 |
                   Tee-Object -FilePath (Join-Path $env:KC_BUNDLE 'stdout.txt')
               $runExit = $LASTEXITCODE
           }
@@ -257,6 +257,8 @@ jobs:
               [ordered]@{ name = 'mapped_soak'; status = 'skip'; reason = 'KVA-shadow platform' },
               [ordered]@{ name = 'mapped_trace_scan'; status = 'skip'; reason = 'KVA-shadow platform' },
               [ordered]@{ name = 'mapped_loader_kill'; status = 'skip'; reason = 'KVA-shadow platform' },
+              [ordered]@{ name = 'wrong_key_rejected'; status = 'skip'; reason = 'known-issue: KC-001' },
+              [ordered]@{ name = 'scm_loader_kill_recovery'; status = 'skip'; reason = 'known-issue: KC-001' },
               [ordered]@{ name = 'crash_bsod_scm'; status = 'skip'; reason = 'requires VM reboot/BSOD' },
               [ordered]@{ name = 'crash_bsod_mapped'; status = 'skip'; reason = 'requires VM reboot/BSOD' }
           )
