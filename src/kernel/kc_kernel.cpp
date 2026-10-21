@@ -443,6 +443,14 @@ VOID WorkerThread(PVOID context) {
         const uint64_t busy_start = __rdtsc();
         KcWorkerBreadcrumb("poll begin");
         const int processed = kernel->reactor.poll(16);
+        /* A failed session can never recover: stop the worker instead of
+         * polling a region whose owner may already be gone. This avoids the
+         * READY-with-dead-peer idle wait path entirely (KC-001). */
+        const kc_state_t polled_state = kernel->reactor.state();
+        if (polled_state == KC_STATE_FAILED || polled_state == KC_STATE_DEAD) {
+            KcWorkerBreadcrumb("worker stop: session failed");
+            break;
+        }
         busy_accum += __rdtsc() - busy_start;
         if ((++busy_flush & 63u) == 0) {
             InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
