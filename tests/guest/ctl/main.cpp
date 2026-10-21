@@ -389,6 +389,25 @@ std::vector<CheckResult> run_functional_tests(kc_client* client,
 /* Corrupted-bootstrap isolation: attach with a wrong key, optionally finish
  *
  * the handshake and/or destroy the driver session. */
+/* User-side breadcrumbs for hang localization (test tool only). */
+void CtlBreadcrumb(const char* message) {
+    HANDLE file = CreateFileA("C:\\blook\\ctl-bc.txt", FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD written = 0;
+    ULONG length = 0;
+    while (message[length] != 0 && length < 200) {
+        ++length;
+    }
+    WriteFile(file, message, length, &written, nullptr);
+    WriteFile(file, "\r\n", 2, &written, nullptr);
+    FlushFileBuffers(file);
+    CloseHandle(file);
+}
+
 int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     CtlBreadcrumb("iso: enter");
     Session session;
@@ -429,24 +448,6 @@ int command_iso_corrupt(const Options& options, bool finish, bool destroy) {
     CtlBreadcrumb("iso: function end");
 }
 /* Debug helpers that isolate handshake/destroy failure paths. */
-/* User-side breadcrumbs for hang localization (test tool only). */
-void CtlBreadcrumb(const char* message) {
-    HANDLE file = CreateFileA("C:\\blook\\ctl-bc.txt", FILE_APPEND_DATA,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    DWORD written = 0;
-    ULONG length = 0;
-    while (message[length] != 0 && length < 200) {
-        ++length;
-    }
-    WriteFile(file, message, length, &written, nullptr);
-    WriteFile(file, "\r\n", 2, &written, nullptr);
-    FlushFileBuffers(file);
-    CloseHandle(file);
-}
 
 int command_iso_attach(const Options& options, bool finish, bool destroy) {
     CtlBreadcrumb("iso: enter");
