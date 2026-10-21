@@ -91,7 +91,7 @@ if (Test-Path $workflowDir) {
         # that loads kernel code still fails this gate.
         $ciKernelSmoke = ($content -match 'HOST-SAFETY-ALLOW:\s*ci-kernel-smoke') -and
             ($content -match 'runs-on:\s*windows-latest') -and
-            ($content -match 'name:\s*kernel-smoke')
+            ($content -match 'name:\s*kernel-(smoke|e2e)')
         if ((-not $ciKernelSmoke) -and
             ($content -match 'sc\.exe\s+(create|start)' -or
              $content -match 'NtLoadDriver')) {

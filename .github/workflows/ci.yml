@@ -236,6 +236,31 @@ jobs:
           if ($rows.Count -lt 10) { throw 'matrix did not run (too few rows)' }
           if ($failures.Count -ne 0) { throw 'e2e matrix reported failures' }
           if ($runExit -ne 0) { throw "guest-run exit code $runExit" }
+          $skipCases = @(
+              [ordered]@{ name = 'crash_bsod_scm'; status = 'skip'; reason = 'requires VM reboot/BSOD' },
+              [ordered]@{ name = 'crash_bsod_mapped'; status = 'skip'; reason = 'requires VM reboot/BSOD' }
+          )
+          $caseRows = @()
+          foreach ($row in $rows) {
+              $caseRows += [ordered]@{
+                  name   = $row.name
+                  status = if ($row.ok) { 'pass' } else { 'fail' }
+                  detail = [string]$row.detail
+              }
+          }
+          $passed = @($caseRows | Where-Object { $_.status -eq 'pass' }).Count
+          $failedCount = @($caseRows | Where-Object { $_.status -eq 'fail' }).Count
+          $summary = [ordered]@{
+              schema    = 'blook-kchannel.ci-e2e.v1'
+              runner    = $env:RUNNER_OS
+              commit    = $env:GITHUB_SHA
+              timestamp = (Get-Date -Format o)
+              counts    = [ordered]@{ passed = $passed; failed = $failedCount; skipped = $skipCases.Count }
+              failures  = $failedCount
+              cases     = @($caseRows) + @($skipCases)
+          }
+          $summary | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $env:KC_BUNDLE 'ci-e2e-result.json')
+          Write-Host ('ci-e2e-result.json: passed=' + $passed + ' failed=' + $failedCount + ' skipped=' + $skipCases.Count)
           Write-Host 'kernel-e2e: PASS'
 
       - name: Upload kernel-e2e evidence
