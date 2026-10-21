@@ -128,12 +128,12 @@ jobs:
             blook-kchannel-*-src.zip.sha256
           if-no-files-found: error
 
-  kernel-smoke:
+  kernel-e2e:
     # HOST-SAFETY-ALLOW: ci-kernel-smoke
-    # The ONLY job allowed to load kernel code, and it runs on a disposable
-    # hosted runner with an SPC-signed image (no test signing). This is real
-    # kernel execution, not a mock: it proves handshake/echo on a stock OS.
-    name: kernel-smoke (real load, SPC-signed)
+    # Full kchannel feature matrix on a disposable hosted runner (admin,
+    # SPC SHA-1 signing, no VT-x needed). The physical host still refuses to
+    # load kernel code; this job is the CI-runners-only exception.
+    name: kernel-e2e (full matrix on hosted runner)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,7 +159,7 @@ jobs:
           if ($null -eq $candidate) { throw 'WDK layout not found in NuGet package' }
           "WDK_DIR=$($candidate.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Configure and build drivers + client
+      - name: Configure and build
         shell: pwsh
         run: |
           xmake f -y -m release --wdk="$env:WDK_DIR"
@@ -177,97 +177,74 @@ jobs:
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SPC_PFX_BASE64))
           $password = ConvertTo-SecureString $env:SPC_PFX_PASSWORD -AsPlainText -Force
           Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
-          # Legacy cross-signed kernel policy needs the TSA root trusted and the
-          # VeriSign CA chain present; without it /kp fails 0x80096010.
+          # Legacy cross-signed kernel policy: TSA root + VeriSign CA chain must
+          # be trusted or both /kp and the load fail (0x80096005 / 577).
           certutil -addstore -f root signer\tsa\tsa-root.cer
           certutil -addstore -f CA signer\certs\verisign-cscs-2010.cer
           certutil -addstore -f CA signer\certs\verisign-g5-mcvr.cer
+          $xinda = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -match 'XINDA' } | Select-Object -First 1
+          Export-Certificate -Cert $xinda -FilePath (Join-Path $env:RUNNER_TEMP 'xinda.cer') -Type CERT | Out-Null
 
-      - name: Sign drivers with the SPC signer
+      - name: Sign drivers (SPC SHA-1) and create the e2e bundle
         shell: pwsh
-        run: |
-          pwsh -NoProfile -File scripts/sign-driver.ps1 -ImportTsaRoot `
-            -Driver 'build\windows\x64\release\kchannel_test.sys,build\windows\x64\release\kcmapload.sys' -Sha1
-          if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
-
-      - name: Load driver, run client, unload (real kernel execution)
-        shell: pwsh
-        env:
-          BLOOK_CI_KERNEL_SMOKE: '1'
         run: |
           $ErrorActionPreference = 'Stop'
-          $out = Join-Path $env:RUNNER_TEMP 'kernel-smoke'
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-          $sys = Join-Path $PWD 'build/windows/x64/release/kchannel_test.sys'
-          $mapSys = Join-Path $PWD 'build/windows/x64/release/kcmapload.sys'
+          $bundle = Join-Path $env:RUNNER_TEMP 'kc-bundle'
+          Remove-Item $bundle -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $bundle | Out-Null
+          $driver = Join-Path $PWD 'build/windows/x64/release/kchannel_test.sys'
+          $mapper = Join-Path $PWD 'build/windows/x64/release/kcmapload.sys'
           $ctl = Join-Path $PWD 'build/windows/x64/release/kchannel-ctl.exe'
+          & pwsh -NoProfile -File scripts/sign-driver.ps1 -ImportTsaRoot -Sha1 -Driver ($driver + ',' + $mapper)
+          if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
+          Copy-Item $driver $bundle -Force
+          Copy-Item $mapper $bundle -Force
+          Copy-Item $ctl $bundle -Force
+          Copy-Item 'tests/e2e/guest-run.ps1' $bundle -Force
+          Copy-Item 'signer/tsa/tsa-root.cer' $bundle -Force
+          Copy-Item 'signer/certs/verisign-cscs-2010.cer' $bundle -Force
+          Copy-Item 'signer/certs/verisign-g5-mcvr.cer' $bundle -Force
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'xinda.cer') (Join-Path $bundle 'blook-kchannel-xinda.cer') -Force
+          "KC_BUNDLE=$bundle" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Get-ChildItem $bundle | Select-Object Name, Length
 
-          function Start-ScWithTimeout {
-              param([string[]]$Arguments, [int]$TimeoutMs = 30000)
-              $process = Start-Process -FilePath 'sc.exe' -ArgumentList $Arguments -PassThru -NoNewWindow
-              if (-not $process.WaitForExit($TimeoutMs)) {
-                  $process.Kill()
-                  throw ('sc.exe ' + ($Arguments -join ' ') + ' timed out')
-              }
-              return $process.ExitCode
-          }
-
+      - name: Run full e2e matrix (host mode)
+        shell: pwsh
+        env:
+          BLOOK_CI_HOST_E2E: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location $env:KC_BUNDLE
           try {
-              sc.exe create kchannel_test type= kernel binPath= "$sys" start= demand |
-                  Tee-Object (Join-Path $out 'scm-create.txt')
-              if ($LASTEXITCODE -ne 0) { throw 'sc create kchannel_test failed' }
-
-              if ((Start-ScWithTimeout @('start', 'kchannel_test')) -ne 0) {
-                  throw 'sc start kchannel_test failed'
-              }
-              $state = (sc.exe query kchannel_test | Out-String)
-              $state | Tee-Object (Join-Path $out 'scm-query.txt')
-              if ($state -notmatch 'STATE\s*:\s*4\s+RUNNING') { throw 'driver did not reach STATE 4 RUNNING' }
-
-              & $ctl attach-test --device '\\.\kchannel_test' --region 0x40000 2>&1 |
-                  Tee-Object (Join-Path $out 'attach-test.json')
-              if ($LASTEXITCODE -ne 0) { throw "attach-test failed: $LASTEXITCODE" }
-              $attach = Get-Content (Join-Path $out 'attach-test.json') -Raw | ConvertFrom-Json
-              if (-not $attach.ok) { throw 'attach-test reported ok=false' }
-
-              sc.exe create kcmapload type= kernel binPath= "$mapSys" start= demand | Out-Null
-              if ((Start-ScWithTimeout @('start', 'kcmapload')) -ne 0) { throw 'sc start kcmapload failed' }
-              & $ctl map-test --mapper '\\.\kcmapload' --image $sys --region 0x40000 2>&1 |
-                  Tee-Object (Join-Path $out 'map-test.json')
-              if ($LASTEXITCODE -ne 0) { throw "map-test failed: $LASTEXITCODE" }
-              $mapped = Get-Content (Join-Path $out 'map-test.json') -Raw | ConvertFrom-Json
-              if (-not $mapped.ok) { throw 'map-test reported ok=false' }
-
-              Write-Host 'kernel-smoke: PASS'
+              & pwsh -NoProfile -File (Join-Path $env:KC_BUNDLE 'guest-run.ps1') 2>&1 |
+                  Tee-Object -FilePath (Join-Path $env:KC_BUNDLE 'stdout.txt')
+              $runExit = $LASTEXITCODE
           }
           finally {
+              Pop-Location
               foreach ($name in @('kcmapload', 'kchannel_test')) {
                   sc.exe stop $name 2>&1 | Out-Null
                   sc.exe delete $name 2>&1 | Out-Null
               }
-              Start-Sleep -Seconds 2
-              $cleanup = sc.exe query kchannel_test 2>&1 | Out-String
-              $cleanup | Set-Content (Join-Path $out 'cleanup-query.txt')
-              if ($cleanup -notmatch 'FAILED 1060') {
-                  Write-Host "warning: kchannel_test still registered after cleanup`n$cleanup"
-              }
-              try {
-                  Get-WinEvent -FilterHashtable @{
-                      LogName   = 'System'
-                      StartTime = (Get-Date).AddMinutes(-10)
-                  } -ErrorAction SilentlyContinue |
-                      Where-Object { $_.Message -match 'kchannel|CodeIntegrity|Driver' } |
-                      Select-Object -First 40 TimeCreated, Id, ProviderName, Message |
-                      Format-List | Out-String | Set-Content (Join-Path $out 'system-events.txt')
-              }
-              catch {
-                  Write-Host ('event capture failed: ' + $_.Exception.Message)
-              }
           }
-      - name: Upload kernel-smoke evidence
+          $results = Join-Path $env:KC_BUNDLE 'results.jsonl'
+          if (-not (Test-Path $results)) { throw 'results.jsonl missing' }
+          $rows = Get-Content $results | Where-Object { $_ -and ($_ -match '"name"') } | ForEach-Object { $_ | ConvertFrom-Json }
+          $failures = @($rows | Where-Object { $_.ok -eq $false })
+          Write-Host "e2e rows: $($rows.Count), failures: $($failures.Count)"
+          foreach ($row in $failures) { Write-Host ("FAILED: " + $row.name + ' :: ' + $row.detail) }
+          if ($rows.Count -lt 10) { throw 'matrix did not run (too few rows)' }
+          if ($failures.Count -ne 0) { throw 'e2e matrix reported failures' }
+          if ($runExit -ne 0) { throw "guest-run exit code $runExit" }
+          Write-Host 'kernel-e2e: PASS'
+
+      - name: Upload kernel-e2e evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-smoke-${{ github.sha }}
-          path: ${{ runner.temp }}/kernel-smoke
+          name: kernel-e2e-${{ github.sha }}
+          path: |
+            ${{ env.KC_BUNDLE }}
+            C:\blook-kchannel-e2e.log
           if-no-files-found: warn
+

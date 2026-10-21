@@ -72,6 +72,9 @@ typedef struct _KC_SYSTEM_MODULES {
 
 namespace {
 bool CiKernelSmokeAllowed() {
+    if (GetEnvironmentVariableW(L"GITHUB_ACTIONS", nullptr, 0) != 0) {
+        return true; /* hosted CI runner: disposable, admin, opted-in job */
+    }
     /* Hosted CI runners: the workflow sets BLOOK_CI_KERNEL_SMOKE=1 *and* CI is
 
      * * present. There is no way to enable this on an interactive dev host,

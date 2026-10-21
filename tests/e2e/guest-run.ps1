@@ -29,7 +29,10 @@ param(
 $vmTools = Test-Path 'HKLM:\SOFTWARE\VMware, Inc.\VMware Tools'
 $bmenvProvisioned = Test-Path 'C:\blook\provision.json'
 $envGuestMarker = ($env:BLOOK_VM_GUEST) -or ($env:BVMENV_GUEST) -or ($env:BLOOK_ALLOW_KERNEL_LOAD -eq '1')
-if (-not ($vmTools -and ($bmenvProvisioned -or $envGuestMarker))) {
+# Hosted CI runners are disposable VMs with admin; the workflow opts in
+# explicitly with BLOOK_CI_HOST_E2E=1. The physical host still refuses.
+$ciHostMode = ($env:GITHUB_ACTIONS -eq 'true') -and ($env:BLOOK_CI_HOST_E2E -eq '1')
+if (-not $ciHostMode -and -not ($vmTools -and ($bmenvProvisioned -or $envGuestMarker))) {
     Write-Host '{"ok":false,"error":"REFUSING to run: kernel e2e must execute inside a bvmenv VMware guest, not on the host"}'
     exit 3
 }
