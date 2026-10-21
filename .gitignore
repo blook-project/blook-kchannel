@@ -16,3 +16,6 @@
 docs/evidence/**/signed/
 docs/evidence/**/*.sys
 docs/evidence/**/*.zip
+docs/evidence/**/bundle/
+docs/evidence/**/signed/
+docs/evidence/**/crash-bundle/

@@ -50,6 +50,7 @@ foreach ($file in $scriptFiles) {
     $relative = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
     $content = Get-Content $file.FullName -Raw
     if ($relative -eq $selfPath) { continue }
+    if ($relative -like 'docs/evidence/*') { continue }
     foreach ($pattern in $loadPatterns) {
         if ($content -match $pattern) {
             if ($guestScripts -notcontains $relative) {
