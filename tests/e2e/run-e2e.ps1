@@ -26,7 +26,8 @@ param(
     [string]$Bvmenv,
     [string]$SignTool,
     [switch]$SkipBuild,
-    [switch]$SkipCrashRun
+    [switch]$SkipCrashRun,
+    [switch]$PrepareOnly
 )
 
 $ErrorActionPreference = 'Stop'
