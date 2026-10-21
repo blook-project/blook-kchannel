@@ -199,6 +199,25 @@ Write-Host $mainRun.Output
 $mainResult = Get-ChildItem $mainOut -Recurse -Filter result.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($mainResult) {
     $mainJson = Get-Content $mainResult.FullName -Raw | ConvertFrom-Json
+    # bvmenv's outcome only reflects the exec exit code; also require the guest
+    # matrix itself to report zero failing checks and an ok:true summary.
+    $mainRunDir = Split-Path $mainResult.FullName -Parent
+    $stdoutFile = Join-Path $mainRunDir 'stdout.txt'
+    if (Test-Path $stdoutFile) {
+        $stdoutText = Get-Content $stdoutFile -Raw
+        $failLines = ([regex]::Matches($stdoutText, '\[FAIL\]')).Count
+        if ($failLines -gt 0) {
+            Write-Host "guest matrix reported $failLines failing checks"
+            $mainJson.outcome = 'fail-checks'
+        }
+        if ($stdoutText -notmatch '"ok":\s*true') {
+            Write-Host 'guest summary missing ok:true'
+            $mainJson.outcome = 'fail-summary'
+        }
+    } else {
+        Write-Host "warning: no stdout.txt under $mainRunDir"
+        $mainJson.outcome = 'fail-no-stdout'
+    }
     Write-Host "main outcome: $($mainJson.outcome)"
 } else {
     Write-Host 'warning: main result.json not found'
