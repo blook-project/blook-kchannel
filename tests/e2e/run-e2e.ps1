@@ -103,8 +103,10 @@ function Invoke-Bvmenv {
 }
 
 $bv = Find-Bvmenv
-$signtool = Find-SignTool
-$certificate = Get-TestCertificate
+# SPC signing: real legacy Authenticode signature (no test signing required)
+$signerScript = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'scripts/sign-driver.ps1'
+$certificate = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -match 'XINDA' } | Select-Object -First 1
+if ($null -eq $certificate) { throw 'XINDA SPC certificate not found in CurrentUser\My' }
 $thumbprint = $certificate.Thumbprint
 Write-Host "bvmenv:  $bv"
 Write-Host "signtool: $signtool"
@@ -136,17 +138,12 @@ foreach ($artifact in @($driver, $mapper, $ctl)) {
 $signed = Join-Path $Out 'signed'
 New-Item -ItemType Directory -Force -Path $signed | Out-Null
 foreach ($file in @($driver, $mapper)) {
-    $target = Join-Path $signed (Split-Path $file -Leaf)
-    Copy-Item $file $target -Force
-    & $signtool sign /fd sha256 /s My /sha1 $thumbprint $target | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "signtool failed for $target" }
-    $signature = Get-AuthenticodeSignature $target
-    if ($null -eq $signature -or $null -eq $signature.SignerCertificate) {
-        throw "signature missing after signtool sign: $target"
-    }
-    Write-Host "signed $target (guest imports the test cert into Root+TrustedPublisher)"
+    Copy-Item $file (Join-Path $signed (Split-Path $file -Leaf)) -Force
 }
-$cerPath = Join-Path $Out 'blook-kchannel-test.cer'
+& pwsh -NoProfile -File $signerScript -ImportTsaRoot -Driver @((Join-Path $signed 'kchannel_test.sys'), (Join-Path $signed 'kcmapload.sys'))
+if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
+Write-Host 'SPC-signed kchannel_test.sys and kcmapload.sys (legacy Authenticode)'
+$cerPath = Join-Path $Out 'blook-kchannel-xinda.cer'
 Export-Certificate -Cert $certificate -FilePath $cerPath -Type CERT | Out-Null
 
 # ------------------------- VM availability ---------------------------

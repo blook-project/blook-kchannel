@@ -1,7 +1,7 @@
 # End-to-end testing (lab VM)
 
 The VM suite proves the parts host tests cannot: real MDL mapping by a real
-driver, test-signed loading, manual mapping, trace absence, unload residue and
+driver, SPC-signed loading, manual mapping, trace absence, unload residue and
 the user-mode driver stack.
 
 
@@ -19,10 +19,10 @@ physical-memory helper on the physical host.
 - `bvmenv.exe` from `blook-project/blook-vmware-environment`, with the base
   image built (`bvmenv base build` + `bvmenv base verify`).
 - A fork of the base image, e.g. `bvmenv create vm-kchannel`. The base image
-  has test signing enabled and UAC disabled, so `sc create/start` works from
+  has test signing disabled and UAC disabled; the drivers are signed with the SPC signer (`signer/`), so `sc create/start` works from
   the e2e entry.
-- Host: Visual Studio + WDK 10.0.26100.0 (`signtool.exe`), xmake 3.0.8.
-- The first run creates a self-signed code-signing certificate
+- Host: Visual Studio + WDK 10.0.26100.0, xmake 3.0.8, and the SPC signer
+- Drivers are SPC-signed with `signer/spcsign` (XINDA certificate in the local
   `CN=blook-kchannel-test` in the **current user** store and exports only the
   public `.cer` into the evidence/bundle. No private key is committed.
 
@@ -51,7 +51,7 @@ The script:
 
 ## 3. What the guest matrix does (`guest-run.ps1`)
 
-Phase A - test-signed SCM load of `kchannel_test.sys`:
+Phase A - SPC-signed SCM load of `kchannel_test.sys`:
 
 | Check | Expected |
 |---|---|
@@ -66,7 +66,7 @@ Phase A - test-signed SCM load of `kchannel_test.sys`:
 | `kchannel-ctl trace-scan` | SCM-scope report |
 | unload (`sc stop` + `sc delete`) | `device_present=false`, `service_key_present=false` |
 
-Phase B - manual map by `kcmapload.sys` (test-signed helper, `sc` loaded):
+Phase B - manual map by `kcmapload.sys` (SPC-signed helper, `sc` loaded):
 
 | Check | Expected |
 |---|---|
@@ -116,7 +116,7 @@ the base snapshot. `bvmenv e2e --reset-on always` is used for the crash run.
 ## 6. Troubleshooting
 
 - `sc start` fails with 577/1275: the test certificate is not trusted in the
-  guest (re-run with the `.cer` present) or test signing was turned off in the
+  guest (re-run with the SPC-signed image) or the legacy signature was rejected in the
   fork.
 - `guest_queryable=false` right after `create`: the VM is still booting; wait
   with `bvmenv wait-ready vm-kchannel`.

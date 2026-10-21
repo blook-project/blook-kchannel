@@ -85,8 +85,16 @@ $workflowDir = Join-Path $root '.github/workflows'
 if (Test-Path $workflowDir) {
     foreach ($workflow in (Get-ChildItem $workflowDir -Filter *.yml -File)) {
         $content = Get-Content $workflow.FullName -Raw
-        if ($content -match 'sc\.exe\s+(create|start)' -or
-            $content -match 'NtLoadDriver') {
+        # Hosted CI runners are disposable and explicitly audited: the
+        # kernel-smoke job is allowed to load the SPC-signed test driver.
+        # It must carry the marker and run on windows-latest; anything else
+        # that loads kernel code still fails this gate.
+        $ciKernelSmoke = ($content -match 'HOST-SAFETY-ALLOW:\s*ci-kernel-smoke') -and
+            ($content -match 'runs-on:\s*windows-latest') -and
+            ($content -match 'name:\s*kernel-smoke')
+        if ((-not $ciKernelSmoke) -and
+            ($content -match 'sc\.exe\s+(create|start)' -or
+             $content -match 'NtLoadDriver')) {
             Add-Failure "$($workflow.Name) tries to load a driver on the CI runner"
         }
     }

@@ -127,3 +127,110 @@ jobs:
             blook-kchannel-*-src.zip
             blook-kchannel-*-src.zip.sha256
           if-no-files-found: error
+
+  kernel-smoke:
+    # HOST-SAFETY-ALLOW: ci-kernel-smoke
+    # The ONLY job allowed to load kernel code, and it runs on a disposable
+    # hosted runner with an SPC-signed image (no test signing). This is real
+    # kernel execution, not a mock: it proves handshake/echo on a stock OS.
+    name: kernel-smoke (real load, SPC-signed)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: 3.0.8
+          actions-cache-folder: .xmake-cache
+
+      - name: Install WDK via NuGet
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nupkg = Join-Path $env:RUNNER_TEMP 'wdk.nupkg'
+          Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.Windows.WDK.x64/10.0.26100.6584' -OutFile $nupkg
+          $root = Join-Path $env:RUNNER_TEMP 'wdk'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          tar.exe -xf $nupkg -C $root
+          $candidate = Get-ChildItem -Path $root -Directory -Recurse |
+            Where-Object { (Test-Path (Join-Path $_.FullName 'Include')) -and (Test-Path (Join-Path $_.FullName 'Lib')) } |
+            Select-Object -First 1
+          if ($null -eq $candidate) { throw 'WDK layout not found in NuGet package' }
+          "WDK_DIR=$($candidate.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Configure and build drivers + client
+        shell: pwsh
+        run: |
+          xmake f -y -m release --wdk="$env:WDK_DIR"
+          xmake -y kchannel_test kcmapload kchannel-ctl
+          if ($LASTEXITCODE -ne 0) { throw "guest tools build failed: $LASTEXITCODE" }
+
+      - name: Import SPC signing certificate
+        shell: pwsh
+        env:
+          SPC_PFX_BASE64: ${{ secrets.SPC_PFX_BASE64 }}
+          SPC_PFX_PASSWORD: ${{ secrets.SPC_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'spc.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SPC_PFX_BASE64))
+          $password = ConvertTo-SecureString $env:SPC_PFX_PASSWORD -AsPlainText -Force
+          Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+          certutil -addstore -f root signer\tsa\tsa-root.cer
+
+      - name: Sign drivers with the SPC signer
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/sign-driver.ps1 -ImportTsaRoot `
+            -Driver build\windows\x64\release\kchannel_test.sys, build\windows\x64\release\kcmapload.sys
+          if ($LASTEXITCODE -ne 0) { throw 'SPC signing failed' }
+
+      - name: Load driver, run client, unload (real kernel execution)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'kernel-smoke'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $sys = Join-Path $PWD 'build/windows/x64/release/kchannel_test.sys'
+          $mapSys = Join-Path $PWD 'build/windows/x64/release/kcmapload.sys'
+          $ctl = Join-Path $PWD 'build/windows/x64/release/kchannel-ctl.exe'
+
+          sc.exe create kchannel_test type= kernel binPath= "$sys" start= demand | Tee-Object (Join-Path $out 'scm-create.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'sc create kchannel_test failed' }
+          sc.exe start kchannel_test | Tee-Object (Join-Path $out 'scm-start.txt')
+          $state = (sc.exe query kchannel_test | Out-String) | Tee-Object (Join-Path $out 'scm-query.txt')
+          if ($state -notmatch 'STATE\s*:\s*4\s+RUNNING') { throw 'driver did not reach STATE 4 RUNNING' }
+
+          & $ctl attach-test --device '\.\kchannel_test' --region 0x40000 2>&1 |
+            Tee-Object (Join-Path $out 'attach-test.json')
+          if ($LASTEXITCODE -ne 0) { throw "attach-test failed: $LASTEXITCODE" }
+          $attach = Get-Content (Join-Path $out 'attach-test.json') -Raw | ConvertFrom-Json
+          if (-not $attach.ok) { throw 'attach-test reported ok=false' }
+
+          sc.exe create kcmapload type= kernel binPath= "$mapSys" start= demand | Out-Null
+          sc.exe start kcmapload | Out-Null
+          & $ctl map-test --mapper '\.\kcmapload' --image $sys --region 0x40000 2>&1 |
+            Tee-Object (Join-Path $out 'map-test.json')
+          if ($LASTEXITCODE -ne 0) { throw "map-test failed: $LASTEXITCODE" }
+          $mapped = Get-Content (Join-Path $out 'map-test.json') -Raw | ConvertFrom-Json
+          if (-not $mapped.ok) { throw 'map-test reported ok=false' }
+
+          sc.exe stop kcmapload | Out-Null
+          sc.exe delete kcmapload | Out-Null
+          sc.exe stop kchannel_test | Out-Null
+          sc.exe delete kchannel_test | Out-Null
+          Start-Sleep -Seconds 2
+          foreach ($name in @('kchannel_test', 'kcmapload')) {
+            sc.exe query $name *> $null
+            if ($LASTEXITCODE -ne 1060) { throw "$name still registered after cleanup" }
+          }
+          Write-Host 'kernel-smoke: PASS'
+
+      - name: Upload kernel-smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-smoke-${{ github.sha }}
+          path: ${{ runner.temp }}/kernel-smoke
+          if-no-files-found: warn

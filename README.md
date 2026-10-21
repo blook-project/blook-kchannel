@@ -22,7 +22,7 @@ the authoritative declarations are
   ABI layout, ring/framing corruption and tamper, replay, fuzz, timeout, and an
   in-process mock kernel that drives the same protocol code as the driver.
 - **VM e2e (gated, awaiting lab base image)**: the bvmenv suite in `tests/e2e`
-  covers test-signed `sc` load and manual map by `kcmapload.sys`, trace scan
+  covers SPC-signed `sc` load and manual map by `kcmapload.sys`, trace scan
   (no device/registry/named-object/module traces for the mapped driver),
   loader-kill cleanup, unload residue, wrong key, duplicate attach, latency
   and idle CPU, plus a deliberate-BSOD harness validation. The run plan is in

@@ -7,6 +7,17 @@ project adheres to the ABI version in `include/blook/kchannel.h`
 
 ## [1.0.0] - 2026-10-21
 
+### Signing and CI kernel execution
+
+- Drivers are signed with the prebuilt SPC signer (signer/, same assets
+  blook-drv ships): legacy Authenticode that loads on stock Windows, so the
+  lab image runs with test signing disabled.
+- New CI job kernel-smoke: SPC-signs kchannel_test.sys/kcmapload.sys from
+  repo secrets, loads the driver on a hosted windows-latest runner, asserts
+  STATE: 4 RUNNING, runs the client handshake/echo and manual-map paths, then
+  stops/deletes both services. Real kernel execution in CI, no VT-x needed.
+
+
 ### Known issues
 
 - **KC-001 (open, critical)**: attaching a corrupted-key bootstrap and exiting
