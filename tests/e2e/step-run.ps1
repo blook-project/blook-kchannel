@@ -119,46 +119,46 @@ $ctl = "$guestDir\kchannel-ctl.exe"
 $checks = @()
 
 # --------------------------- SCM matrix -------------------------------
-$checks += Invoke-Exec 'wrong-key' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' wrong-key --device \\.\kchannel_test`""
-$checks += Invoke-Exec 'attach-test' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' attach-test --device \\.\kchannel_test --region 0x40000`""
-$checks += Invoke-Exec 'second-attach' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' second-attach --device \\.\kchannel_test --region 0x40000`""
-$checks += Invoke-Exec 'events' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' event-test --device \\.\kchannel_test --region 0x40000`""
+$checks += Invoke-Exec 'wrong-key' "$ctl wrong-key --device \\.\kchannel_test"
+$checks += Invoke-Exec 'attach-test' "$ctl attach-test --device \\.\kchannel_test --region 0x40000"
+$checks += Invoke-Exec 'second-attach' "$ctl second-attach --device \\.\kchannel_test --region 0x40000"
+$checks += Invoke-Exec 'events' "$ctl event-test --device \\.\kchannel_test --region 0x40000"
 foreach ($case in @('ring', 'geometry', 'attach', 'record', 'truncated')) {
-    $checks += Invoke-Exec "tamper-$case" "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' tamper --device \\.\kchannel_test --case $case --region 0x40000`""
+    $checks += Invoke-Exec "tamper-$case" "$ctl tamper --device \\.\kchannel_test --case $case --region 0x40000"
 }
 foreach ($payload in @(64, 4096)) {
-    $checks += Invoke-Exec "latency-$payload" "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' latency --device \\.\kchannel_test --region 0x40000 --count 2000 --payload $payload`""
+    $checks += Invoke-Exec "latency-$payload" "$ctl latency --device \\.\kchannel_test --region 0x40000 --count 2000 --payload $payload"
 }
-$checks += Invoke-Exec 'latency-64k' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' latency --device \\.\kchannel_test --region 0x40000 --count 200 --payload 65470`""
+$checks += Invoke-Exec 'latency-64k' "$ctl latency --device \\.\kchannel_test --region 0x40000 --count 200 --payload 65470"
 foreach ($payload in @(64, 4096)) {
-    $checks += Invoke-Exec "latency-copy-$payload" "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' latency --device \\.\kchannel_test --region 0x40000 --count 2000 --payload $payload --mode copy`""
+    $checks += Invoke-Exec "latency-copy-$payload" "$ctl latency --device \\.\kchannel_test --region 0x40000 --count 2000 --payload $payload --mode copy"
 }
-$checks += Invoke-Exec 'worker-cpu' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' worker-cpu --device \\.\kchannel_test --region 0x40000 --seconds 10`""
-$checks += Invoke-Exec 'worker-cpu-copy' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' worker-cpu --device \\.\kchannel_test --region 0x40000 --seconds 10 --mode copy`""
-$checks += Invoke-Exec 'stop-latency' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' stop-latency --device \\.\kchannel_test --region 0x40000`""
-$checks += Invoke-Exec 'soak' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' soak --device \\.\kchannel_test --region 0x40000 --count 100000 --payload 64`""
-$checks += Invoke-Exec 'loader-kill' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' loader-kill --device \\.\kchannel_test --region 0x40000`"" -TimeoutSeconds 240
-$checks += Invoke-Exec 'trace-scan-scm' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' trace-scan --device \\.\kchannel_test`""
+$checks += Invoke-Exec 'worker-cpu' "$ctl worker-cpu --device \\.\kchannel_test --region 0x40000 --seconds 10"
+$checks += Invoke-Exec 'worker-cpu-copy' "$ctl worker-cpu --device \\.\kchannel_test --region 0x40000 --seconds 10 --mode copy"
+$checks += Invoke-Exec 'stop-latency' "$ctl stop-latency --device \\.\kchannel_test --region 0x40000"
+$checks += Invoke-Exec 'soak' "$ctl soak --device \\.\kchannel_test --region 0x40000 --count 100000 --payload 64"
+$checks += Invoke-Exec 'loader-kill' "$ctl loader-kill --device \\.\kchannel_test --region 0x40000" -TimeoutSeconds 240
+$checks += Invoke-Exec 'trace-scan-scm' "$ctl trace-scan --device \\.\kchannel_test"
 
 # ------------------------- unload residue -----------------------------
 $unload = "sc stop kchannel_test >nul 2>&1 & sc delete kchannel_test >nul 2>&1 & timeout /t 1 >nul"
 Invoke-Exec -Name 'unload-scm' -CommandLine $unload -TimeoutSeconds 120 | Out-Null
-$checks += Invoke-Exec 'trace-scan-unloaded' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' trace-scan --device \\.\kchannel_test`""
+$checks += Invoke-Exec 'trace-scan-unloaded' "$ctl trace-scan --device \\.\kchannel_test"
 
 # ---------------------------- mapped path -----------------------------
 $mapSetup = "sc create kcmapload type= kernel binPath= C:\Windows\System32\drivers\kcmapload.sys start= demand >nul & sc start kcmapload >nul"
 Invoke-Exec -Name 'mapper-setup' -CommandLine $mapSetup -TimeoutSeconds 120 | Out-Null
 $mapper = '\\.\kcmapload'
 $image = "$guestDir\kchannel_test.sys"
-$checks += Invoke-Exec 'mapped-functional' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' map-test --mapper $mapper --image $image --region 0x40000`""
-$checks += Invoke-Exec 'mapped-events' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' event-test --mapper $mapper --image $image --region 0x40000`""
+$checks += Invoke-Exec 'mapped-functional' "$ctl map-test --mapper $mapper --image $image --region 0x40000"
+$checks += Invoke-Exec 'mapped-events' "$ctl event-test --mapper $mapper --image $image --region 0x40000"
 foreach ($payload in @(64, 4096)) {
-    $checks += Invoke-Exec "mapped-latency-$payload" "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' latency --mapper $mapper --image $image --region 0x40000 --count 2000 --payload $payload`""
+    $checks += Invoke-Exec "mapped-latency-$payload" "$ctl latency --mapper $mapper --image $image --region 0x40000 --count 2000 --payload $payload"
 }
-$checks += Invoke-Exec 'mapped-soak' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' soak --mapper $mapper --image $image --region 0x40000 --count 20000 --payload 64`""
-$checks += Invoke-Exec 'mapped-trace-scan' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' trace-scan --image $image`""
-$checks += Invoke-Exec 'mapped-loader-kill' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' loader-kill --image $image --mapper $mapper --region 0x40000`"" -TimeoutSeconds 240
-$checks += Invoke-Exec 'traces' "powershell -NoProfile -ExecutionPolicy Bypass -Command `"& '$ctl' trace-scan --image $image`""
+$checks += Invoke-Exec 'mapped-soak' "$ctl soak --mapper $mapper --image $image --region 0x40000 --count 20000 --payload 64"
+$checks += Invoke-Exec 'mapped-trace-scan' "$ctl trace-scan --image $image"
+$checks += Invoke-Exec 'mapped-loader-kill' "$ctl loader-kill --image $image --mapper $mapper --region 0x40000" -TimeoutSeconds 240
+$checks += Invoke-Exec 'traces' "$ctl trace-scan --image $image"
 
 # ------------------------------ cleanup -------------------------------
 $cleanup = "sc stop kcmapload >nul 2>&1 & sc delete kcmapload >nul 2>&1 & sc stop kchannel_test >nul 2>&1 & sc delete kchannel_test >nul 2>&1"
