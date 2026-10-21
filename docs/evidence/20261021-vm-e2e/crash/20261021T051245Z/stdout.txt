@@ -1,3 +1,0 @@
-{"phase":"crash","note":"invoking deliberate kernel fault"}
-{"ok":false,"error":"IOCTL_ATTACH failed"}
-{"phase":"crash","ok":false,"note":"driver survived the fault handler"}
