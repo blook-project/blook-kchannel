@@ -387,6 +387,47 @@ kc_status reject_bootstrap(const kc_bootstrap* boot, kc_status error) {
 
 /* ------------------------------ worker ------------------------------- */
 
+#if defined(_KERNEL_MODE) && defined(KCHANNEL_TESTING)
+/* Worker breadcrumbs: append a line to C:\Windows\Temp\kchannel-wbc.txt.
+ * Test-only (KCHANNEL_TESTING); used to locate a hang without a debugger. */
+void KcWorkerBreadcrumb(const char* message) {
+    static LONG guard = 0;
+    if (InterlockedCompareExchange(&guard, 1, 0) != 0) {
+        return;
+    }
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\??\\C:\\Windows\\Temp\\kchannel-wbc.txt");
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, &path,
+                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+                               nullptr, nullptr);
+    HANDLE file = nullptr;
+    IO_STATUS_BLOCK status_block{};
+    NTSTATUS status = ZwCreateFile(
+        &file, FILE_APPEND_DATA | SYNCHRONIZE, &attributes, &status_block,
+        nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
+    if (NT_SUCCESS(status)) {
+        char line[128];
+        ULONG length = 0;
+        while (message[length] != 0 && length < sizeof(line) - 3) {
+            line[length] = message[length];
+            ++length;
+        }
+        line[length++] = '\r';
+        line[length++] = '\n';
+        status = ZwWriteFile(file, nullptr, nullptr, nullptr, &status_block,
+                             line, length, nullptr, nullptr);
+        if (NT_SUCCESS(status)) {
+            ZwFlushBuffersFile(file, &status_block);
+        }
+        ZwClose(file);
+    }
+    InterlockedExchange(&guard, 0);
+}
+#else
+#define KcWorkerBreadcrumb(...) ((void)0)
+#endif
 VOID WorkerThread(PVOID context) {
     kc_kernel* kernel = static_cast<kc_kernel*>(context);
     KC_TRACE("worker enter thread=%p", PsGetCurrentThread());
@@ -399,7 +440,8 @@ VOID WorkerThread(PVOID context) {
             break;
         }
         const uint64_t busy_start = __rdtsc();
-        const int processed = kernel->reactor.poll(16);
+        KcWorkerBreadcrumb("poll begin");
+        `n const int processed = kernel->reactor.poll(16);
         busy_accum += __rdtsc() - busy_start;
         if ((++busy_flush & 63u) == 0) {
             InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
@@ -477,7 +519,8 @@ VOID WorkerThread(PVOID context) {
     }
     InterlockedExchangeAdd64(&kernel->worker_busy_cycles,
                              static_cast<LONG64>(busy_accum));
-    KC_TRACE("worker exit thread=%p", PsGetCurrentThread());
+    KcWorkerBreadcrumb("worker exit");
+    `n KC_TRACE("worker exit thread=%p", PsGetCurrentThread());
     if (InterlockedCompareExchange(&kernel->destroy_pending, 1, 1) != 0) {
         KC_TRACE("worker: destroy_pending, cleaning up");
         kernel_cleanup(kernel);
